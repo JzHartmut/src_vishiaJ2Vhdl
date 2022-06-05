@@ -219,8 +219,7 @@ classContent::=
 ##     | @[<?-Annotation>{<$?>?\.} [(<*)?>)]] 
  ##    | <ModifierClass?-?>
   ##  }] 
-  [ //ZBNFoff <*|//end-ZBNFoff?>
-  | enum <enumDefinition?+?>
+  [ enum <enumDefinition?+?>
   | <classDefinition?+?>
   | <interfaceDefinition?+?>
   | <variableDefinition?+?> ;

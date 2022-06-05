@@ -24,14 +24,45 @@
 
 ============================== src/main/java/srcJava_vishiaVhdlConv/_make/ =========================
 2022-05-28 11:43:18  x     +genjavadoc_vishiaVhdlConv.sh            ::           .779 -0821524720 
-2022-05-31 12:21:39  x     +makejar_vishiaVhdlConv.sh               ::          4.069 -1970284684 
-2020-03-18 20:51:28  x     vishiaVhdlConv.manifest                  ::           . 61 -2005899189 
+2022-05-31 12:21:38  x     +makejar_vishiaVhdlConv.sh               ::          4.069 -1970284684 
+2020-03-18 19:51:28  x     vishiaVhdlConv.manifest                  ::           . 61 -2005899189 
 
 ============================== src/main/java/srcJava_vishiaVhdlConv/org/ ===========================
 
 ============================== src/main/java/srcJava_vishiaVhdlConv/org/vishia/ ====================
 
 ============================== src/main/java/srcJava_vishiaVhdlConv/org/vishia/java2Vhdl/ ==========
+2022-05-15 23:42:58  x     J2Vhdl_ConstDef.java                     ::           .396 -0896210286 
+2022-05-15 23:42:58  x     J2Vhdl_FpgaData.java                     ::          1.340 -0140695618 
+2022-05-15 23:43:00  x     J2Vhdl_ModuleInstance.java               ::          1.409  0745099488 
+2022-05-30 22:12:04  x     J2Vhdl_ModuleType.java                   ::          3.472 -1327121508 
+2022-05-20 17:42:14  x     J2Vhdl_Operator.java                     ::          5.312  0498757600 
+2022-05-15 23:42:58  x     J2Vhdl_Variable.java                     ::          1.936  1915599024 
+2022-05-30 23:03:40  x     Java2Vhdl.java                           ::         64.111 -1031510343 
+2022-05-30 22:13:26  x     VhdlConv.java                            ::         59.747 -1015519658 
+2022-05-30 22:13:42  x     VhdlExprTerm.java                        ::         26.921  0693002270 
+2022-05-01 19:36:22  x     VhdlTemplate.txt                         ::           .333 -0888383234 
+
+============================== src/main/java/srcJava_vishiaVhdlConv/org/vishia/java2Vhdl/parseJava/ ===
+2022-05-30 23:03:28  x     JavaParser.java                          ::          6.639 -0106571126 
+2022-05-30 22:04:14  x     JavaSrc.java                             ::         40.718  0050858659 
+2022-05-30 22:03:30  x     JavaSrc_Base.java                        ::        105.661  0031464402 
+2022-05-30 22:03:38  x     JavaSrc_Zbnf.java                        ::        197.836  0249160420 
+2022-05-15 13:58:40  x     JavaSyntax.zbnf                          ::         23.108 -0459551353 
+2022-05-30 22:03:06  x     package-info.java                        ::           .177 -0961468918 
+
+============================== src/main/java/srcJava_vishiaVhdlConv-new/ ===========================
+
+============================== src/main/java/srcJava_vishiaVhdlConv-new/_make/ =====================
+2022-05-28 11:43:18  x     +genjavadoc_vishiaVhdlConv.sh            ::           .779 -0821524720 
+2022-05-31 12:21:39  x     +makejar_vishiaVhdlConv.sh               ::          4.069 -1970284684 
+2020-03-18 20:51:28  x     vishiaVhdlConv.manifest                  ::           . 61 -2005899189 
+
+============================== src/main/java/srcJava_vishiaVhdlConv-new/org/ =======================
+
+============================== src/main/java/srcJava_vishiaVhdlConv-new/org/vishia/ ================
+
+============================== src/main/java/srcJava_vishiaVhdlConv-new/org/vishia/java2Vhdl/ ======
 2022-05-15 23:42:59  x     J2Vhdl_ConstDef.java                     ::           .396 -0896210286 
 2022-05-15 23:42:59  x     J2Vhdl_FpgaData.java                     ::          1.340 -0140695618 
 2022-05-15 23:43:00  x     J2Vhdl_ModuleInstance.java               ::          1.409  0745099488 
@@ -43,7 +74,7 @@
 2022-05-30 22:13:42  x     VhdlExprTerm.java                        ::         26.921  0693002270 
 2022-05-01 19:36:22  x     VhdlTemplate.txt                         ::           .333 -0888383234 
 
-============================== src/main/java/srcJava_vishiaVhdlConv/org/vishia/java2Vhdl/parseJava/ ===
+============================== src/main/java/srcJava_vishiaVhdlConv-new/org/vishia/java2Vhdl/parseJava/ ===
 2022-06-01 23:54:07  x     JavaParser.java                          ::          6.633 -0091837206 
 2022-05-30 22:04:15  x     JavaSrc.java                             ::         40.718  0050858659 
 2022-05-30 22:03:30  x     JavaSrc_Base.java                        ::        105.661  0031464402 

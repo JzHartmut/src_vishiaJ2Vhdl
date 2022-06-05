@@ -501,7 +501,6 @@ public class Java2Vhdl {
       File tmpDir = null;
       if(this.args.bParseResult) { tmpDir = this.args.dirTmpVhdl; } // if null, no parse result.
       JavaSrc parseResult = this.parser.parseJava(fParse, tmpDir, this.args.bJavaData, this.args.bParseResult, this.args.bLogParsing);
-      System.gc();
       return parseResult;
     }
   }
