@@ -10,6 +10,8 @@
 :wildcard: *
 :stylesheet: my.css
 
+Version: 2022-06-04
+
 
 See also:
 
@@ -1039,4 +1041,28 @@ include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBl
 
 Here the output is triggered if the counter reaches the value 1, back counting before zero-crossing. 
 Details of this are also used to present the common approach in link:Java2Vhdl_Approaches.html#testOutp[].
+
+
+
+
+==== Store and restore the state of modules as well as the whole simulation state
+
+For the example the following [J]`Store` class is able to find in the common offered [J]`Reset` module:
+
+.Java: Store class in a module
+[source,Java]
+----
+include::../../../main/java/srcJava_vishiaFpga/org/vishia/fpga/stdmodules/Reset.java[tag=Store]
+----
+
+If you look to the description of the base class:
+
+link:../../docuSrcJava_vishiaFpga/org/vishia/fpga/testutil/StateStoreFpga.html[]
+
+you find also the pattern for application. This is not done in the simple Example.
+
+The storage of the whole state of the simulation (all modules in the FPGA and also the environment, test bed state)
+is helpfully if you want to simulate variants starting from a dedicated state.
+You save the effort to reach the start state again from beginning.
+ 
 

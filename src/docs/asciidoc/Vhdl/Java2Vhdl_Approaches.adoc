@@ -10,6 +10,7 @@
 :wildcard: *
 :stylesheet: my.css
 
+Version: 2022-06-04
 
 See also:
 
@@ -1314,7 +1315,7 @@ Of course an adequate approach is possible for Java simulation because Java has 
 it can be programmed in a specific way, or given routines in libraries of from other tools are usable.
 But is this the best one?
 
-The very simple solution presented below is also satisfactory:  
+The very simple solution presented below may be also satisfactory:  
 
 ----
 ct.ctLow__________:0001 0000 ffff 61a7 ...0001 0000 ffff 61a7 ...0001 0000 ffff 61a7 ...0001 0000 ffff 61a7 ...0001 
@@ -1326,14 +1327,57 @@ io.ledB___________:_____________________________________________________________
 ok Test_BlinkingLed
 ----
 
-This is the content of a simple text file, able to view with any normal powerful text editor, for example link:https://notepad-plus-plus.org/[] or link:http://www.jedit.org/[]. 
+This is the content of a simple text file, able to view with any normal stupid or better a powerful text editor, for example link:https://notepad-plus-plus.org/[] or link:http://www.jedit.org/[]. 
 The original lines produces by the Blinking_Led example has a length of ~5000 character, no problem for viewing, shifting 
 and copy also a part to the clipboard using the "__rectangular selection__" mode in Jedit or the "__column selection mode__" on Nodepad++.
 
-The lines are time lines. Each column position in each line is the same time, more exact the start column of a longer information. 
+The lines are time lines. Each column position in each line presents the same time, more exact the start column of a longer information. 
 Of course you should use a monospace font in the editor. 
 
-But the time in the line may not be equidistant, depending of the output routines. 
+The resolution of such an output can be one system clock per column or character, or also condensed, for example a dedicated CE (clock enable) occurrence per column.
+
+Because you can use proper characters to show a state, this is more obviously as only simple lines. 
+Especially you can assemble more signals in one line using proper characters. For that look on a snippet of another example:
+
+----
+rx2.rxCE___________:____________----f---------f---------f--=======e=========e=========e==++++e++++++e++++++e++++++e++++________________
+Time.time__________:^``8.54      |      |      |      ^``9.00       |      |      |      ^      |      |      |      |      ^``10.00   
+----
+
+This first line shows three signals:
+* The 'f' or 'e' is a special clock enable signal, always one clock period wide.
+* The `___` is used for the idle state, then also no ce should be occur.
+* The `---` is one specific state, in this state a ce may occur as shown for the one clock period.
+* The `===` and `+++` is each another state, also with occurrence of ce. 
+The letter for the occurrence of the ce signal is also changed for better visibility.
+
+To build this output, you should override the operation [J]`addSignals` in the derived class of 
+link:../../docuSrcJava_vishiaFpga/org/vishia/fpga/testutil/TestSignalRecorder.html[org.vishia.fpga.testutil.TestSignalRecorder]
+in the following form:
+
+.Java: Example to build a character for output
+[source,Java]
+----
+char ce;
+if(thism.qrx.ce) { ce = thism.qrx.dataState ? 'e' : 'f'; }
+else if(thism.qrx.stateA && thism.qrx.stateB) { ce = '='; }
+else if(thism.qrx.stateA) { ce = '-'; }
+else if(thism.qrx.stateC) { ce = '+'; }  //(not all is full decoded)
+else { ce = '_';}
+this.sbCe.append(ce);
+----
+
+You can use more mnemonic character for the states, and also for short signals in the state. 
+The only one challenge is, a good documentation of the used characters.
+You get a very compressed representation with more expressiveness than many lines.
+
+The second line shows the time, which is equidistant here. This signal is created using a instance of 
+
+link:../../docuSrcJava_vishiaFpga/org/vishia/fpga/testutil/TestSignalRecorder.Time.html[org.vishia.fpga.testutil.TestSignalRecorder.Time]
+
+Using this class, the time is always written on start of line, and then in a proper distance with 5- and 10 divisions.
+
+The time in the line may not be equidistant, depending of the output routines. 
 This is an advantage. You can show an incident in detail zoomed in time, whereas non interesting time spreads are condensed.
 The example shows it. The trigger for writing details is here the ctLow with the value `0x0001`. It is shortly before zero crossing.
 The `ct`, the higher count is shown, its value changes if the `ctLow` reaches `ffff` and the reload value is also set if `ffff` is reached before,
@@ -1352,12 +1396,17 @@ The algorithm in Java to sort the output for this information is not complicated
 include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=addSignals]
 ----
    
-Generally, adding a signal is only done if `clkDiv.q.ce` is true, because: This module changes only its state with this `ce` clock enable.
+Generally for this example, adding a signal is only done if `clkDiv.q.ce` is true, because: 
+This module changes only its state with this `ce` clock enable.
 It saves calculation time if this is quest firstly. 
 Then the trigger for the output is `mdl.q.ctLow == 1`. With this condition the next 5 `ce` times are presented.
 
 Because 5 characters are appended to `sbCtLow`, this is the longest appendix, all lines are elongated to this legth, as you can see in the ouput.
 It means this time uses 5 column positions in the output, in all output lines.
+
+You should not see the effort to program the output, you should see the advantage to design your necessary output for complex signals and test cases.
+Programming in Java is much easier and safer than, for example, in the {cpp} language or in certain scripting languages often used for simulation tools.
+You can make extensive use of auto-completion during editing, you will get immediately writing mistake messages (syntax errors) and hints for correction.
 
 This horizontal output as also a vertical output, the time is continued in the lines than in columns, is organized by two classes
 in the package `org.vishia.fpga.testutil`. It is explained in detail in link:Java2Vhdl_TestOutput.html[] and for the Blinking Led example

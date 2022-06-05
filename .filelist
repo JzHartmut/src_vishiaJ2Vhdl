@@ -4,81 +4,21 @@
 ============================== src/docs/ ===========================================================
 
 ============================== src/docs/asciidoc/ ==================================================
-2022-05-28 10:48:57  x     genHtml.bat                              ::           .454 -0918078287 
+2022-06-04 17:12:24  x     genHtml.bat                              ::           .554 -0164192525 
 
 ============================== src/docs/asciidoc/Vhdl/ =============================================
-2022-05-31 10:09:29  x     Java2Vhdl_Approaches.adoc                ::         83.639  0964558074 
+2022-06-04 17:59:49  x     Java2Vhdl_Approaches.adoc                ::         86.499 -0645248434 
 2022-05-30 21:50:55  x     Java2Vhdl_FirstPaper.adoc                ::         19.489 -1302900141 
 2022-02-20 23:54:36  x     Java2Vhdl_StyleGuide.adoc                ::         10.011  1529218166 
-2022-05-31 16:27:47  x     Java2Vhdl_ToolsAndExample.adoc           ::         51.916  0621768906 
-2022-05-30 23:35:59  x     Java2Vhdl_TranslatorInternals.adoc       ::          7.595  1570938902 
+2022-06-04 18:00:55  x     Java2Vhdl_TestOutput.adoc                ::           .329  0581820779 
+2022-06-04 18:00:01  x     Java2Vhdl_ToolsAndExample.adoc           ::         52.762 -1986933367 
+2022-06-04 18:00:35  x     Java2Vhdl_TranslatorInternals.adoc       ::          7.616  1223070427 
 2022-03-26 12:00:06  x     Vhdl.zip                                 ::         12.808 -0796044082 
 2022-05-09 16:48:00  x     my.css                                   ::         30.044  1327990975 
-
-============================== src/load_tools/ =====================================================
-2022-05-31 16:53:31  x     +checkAndLoadTools.bat                   ::           .668 -1184903984 
-2022-05-31 20:39:35  x     tools.bom                                ::           .584  0167575816 
-2022-05-31 20:25:32  x     vishiaMinisys.jar                        ::         85.297 -1538870130 
 
 ============================== src/main/ ===========================================================
 
 ============================== src/main/java/ ======================================================
-
-============================== src/main/java/srcJava_FpgaExmplBlinkingLed/ =========================
-
-============================== src/main/java/srcJava_FpgaExmplBlinkingLed/_make/ ===================
-2022-05-31 20:23:40  x     +makejar_exmplBlinkingLedFpga.sh         ::          3.277 -1693425432 
-2022-05-31 22:29:49  x     -makejar-coreScript.sh                   ::          6.691 -1549028725 
-2021-06-28 23:34:15  x     JAVAC_HOME.sh                            ::          1.154 -1792697615 
-2020-03-18 20:51:28  x     exmplBlinkingLedFpga.manifest            ::           . 61 -2005899189 
-
-============================== src/main/java/srcJava_FpgaExmplBlinkingLed/org/ =====================
-
-============================== src/main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/ ==============
-
-============================== src/main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/ =========
-
-============================== src/main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/ ===
-
-============================== src/main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/ ===
-2022-05-28 09:19:37  x     BlinkingLed_Fpga.java                    ::          2.878 -1884154169 
-2022-05-30 19:02:39  x     BlinkingLed_FpgaInOutput.java            ::          1.558 -1610774629 
-2022-05-30 19:04:04  x     BlinkingLed_IoAcc.java                   ::           .495 -2012932088 
-
-============================== src/main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/ ===
-2022-05-28 09:04:09  x     BlinkingLedCfg_ifc.java                  ::           .649 -0680227105 
-2022-05-31 09:32:18  x     BlinkingLedCt.java                       ::          8.938  1086966836 
-2022-05-23 10:18:21  x     BlinkingLed_ifc.java                     ::           .369  2121074132 
-2022-05-28 09:22:16  x     ClockDivider.java                        ::          1.893 -0482708883 
-
-============================== src/main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/ ===
-2022-05-30 21:35:49  x     Test_BlinkingLed.java                    ::          4.964 -2086308226 
-
-============================== src/main/java/srcJava_vishiaFpga/ ===================================
-
-============================== src/main/java/srcJava_vishiaFpga/_make/ =============================
-2022-05-28 11:49:28  x     +genjavadoc_vishiaFpga.sh                ::           .775  1678536902 
-
-============================== src/main/java/srcJava_vishiaFpga/org/ ===============================
-
-============================== src/main/java/srcJava_vishiaFpga/org/vishia/ ========================
-
-============================== src/main/java/srcJava_vishiaFpga/org/vishia/fpga/ ===================
-2022-05-28 09:34:14  x     Fpga.java                                ::          8.287 -0290627696 
-2022-05-15 23:48:02  x     FpgaModule_ifc.java                      ::          1.603 -0300165073 
-
-============================== src/main/java/srcJava_vishiaFpga/org/vishia/fpga/stdmodules/ ========
-2022-05-20 20:41:34  x     Bit_ifc.java                             ::           .918 -1836885076 
-2022-05-28 09:17:08  x     Reset.java                               ::          2.269 -1381538500 
-2022-04-19 19:37:22  x     Reset_Inpin_ifc.java                     ::           .265  0656561910 
-2022-05-28 09:06:45  x     Reset_ifc.java                           ::           .380  0036476361 
-
-============================== src/main/java/srcJava_vishiaFpga/org/vishia/fpga/testutil/ ==========
-2022-05-30 21:33:44  x     CheckOper.java                           ::          1.374  1980886240 
-2022-05-30 11:06:40  x     TestSignalRecorder.java                  ::          9.624 -0843450805 
-2022-05-30 11:06:40  x     TestSignalRecorderSet.java               ::          3.631  0619273324 
-2022-05-16 17:19:25  x     TestSignalRecorderVertical.java          ::          1.622 -0828855472 
-2022-05-15 23:48:53  x     TestSignalVerticalAdd.java               ::           .322 -0057543795 
 
 ============================== src/main/java/srcJava_vishiaVhdlConv/ ===============================
 
@@ -98,17 +38,17 @@
 2022-05-30 22:12:05  x     J2Vhdl_ModuleType.java                   ::          3.472 -1327121508 
 2022-05-20 17:42:15  x     J2Vhdl_Operator.java                     ::          5.312  0498757600 
 2022-05-15 23:42:59  x     J2Vhdl_Variable.java                     ::          1.936  1915599024 
-2022-05-30 23:03:41  x     Java2Vhdl.java                           ::         64.111 -1031510343 
+2022-06-02 10:24:38  x     Java2Vhdl.java                           ::         64.130 -1652680797 
 2022-05-30 22:13:26  x     VhdlConv.java                            ::         59.747 -1015519658 
 2022-05-30 22:13:42  x     VhdlExprTerm.java                        ::         26.921  0693002270 
 2022-05-01 19:36:22  x     VhdlTemplate.txt                         ::           .333 -0888383234 
 
 ============================== src/main/java/srcJava_vishiaVhdlConv/org/vishia/java2Vhdl/parseJava/ ===
-2022-05-30 23:03:28  x     JavaParser.java                          ::          6.639 -0106571126 
+2022-06-01 23:54:07  x     JavaParser.java                          ::          6.633 -0091837206 
 2022-05-30 22:04:15  x     JavaSrc.java                             ::         40.718  0050858659 
 2022-05-30 22:03:30  x     JavaSrc_Base.java                        ::        105.661  0031464402 
 2022-05-30 22:03:38  x     JavaSrc_Zbnf.java                        ::        197.836  0249160420 
-2022-05-15 13:58:40  x     JavaSyntax.zbnf                          ::         23.108 -0459551353 
+2022-06-03 22:48:10  x     JavaSyntax.zbnf                          ::         23.141  1387563629 
 2022-05-30 22:03:06  x     package-info.java                        ::           .177 -0961468918 
 
 ============================== src/test/ ===========================================================

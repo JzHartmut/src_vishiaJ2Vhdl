@@ -16,7 +16,6 @@ import org.vishia.util.Debugutil;
 import org.vishia.zbnf.ZbnfParseResultItem;
 import org.vishia.zbnf.ZbnfParser;
 import org.vishia.zbnf.GenZbnfJavaData;
-import org.vishia.zbnf.Zbnf2Xml;
 import org.vishia.zbnf.ZbnfJavaOutput;
 
 public class JavaParser {
@@ -142,6 +141,7 @@ public class JavaParser {
         File fOut = new File(dirTmp, fileIn.getName() + ".javaData.html");
         JZtxtcmdTester.dataHtmlNoExc(result.dataJavaSrc, fOut, true);
       }
+      this.parser.clean();
       return result.dataJavaSrc;
     }    
   }
