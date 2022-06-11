@@ -18,6 +18,8 @@ import java.util.TreeMap;
 
 import javax.script.ScriptException;
 
+import org.vishia.fpga.Fpga;
+import org.vishia.fpga.stdmodules.Bit_ifc;
 import org.vishia.java2Vhdl.parseJava.JavaParser;
 import org.vishia.java2Vhdl.parseJava.JavaSrc;
 import org.vishia.util.Arguments;
@@ -35,7 +37,12 @@ import org.vishia.util.StringFormatter;
 public class Java2Vhdl {
 
   /**Version, history and license.
-   * <ul>
+   * <ul>2022-06-11 Hartmut Big bug with small cause found: 
+   *   For the CONSTANT names, the identifier for the access variable,
+   *   for exampl <code>((AT)Fpga.IfcAccess Bit_ifc <b>stubFalse</b></code>  was not used in the name.
+   *   Hence the CONSTANT definitions were not distinguished, the first has wined and the VHDL function was very faulty.
+   *   Detect on the test design for SpeA card, in comparison real behavior with simulation, 
+   *   and checked the VHDL file, from which the real behavior may be forded.
    * <li>2022-04-26 {@link Args#dirJavaVhdlSrc} as List, more as one source directory possible.
    * <li>2022-02: Hartmut www.vishia.de creation
    * </ul>
@@ -51,7 +58,7 @@ public class Java2Vhdl {
    * <li>descr: Change of description of elements.
    * </ul> 
    */
-  public static final String sVersion = "2022-05-23";
+  public static final String sVersion = "2022-06-11";
 
   
   
@@ -849,7 +856,7 @@ public class Java2Vhdl {
                 if(val !=null) {
                   JavaSrc.ConstNumber constVal = val.get_constNumber();
                   if(constVal !=null) {                      // a constant returned from interface
-                    String nameVhdl = moduleType.nameType + "_" + name;
+                    String nameVhdl = moduleType.nameType  + (sAccess == null ? "" : "_" + sAccess) + "_" + name;
                     constDef = createConst(nameVhdl, nameVhdl, expr);
                     expr = null;  //no more necessary.
               } } }
@@ -962,6 +969,12 @@ public class Java2Vhdl {
 
   
   
+  /**This searches for enum definition in an inner class, defines its values for const, especially usable for states.
+   * @param iclass
+   * @param nameType
+   * @param nameModule
+   * @throws Exception
+   */
   void gatherConstValues ( JavaSrc.ClassDefinition iclass, String nameType, String nameModule) throws Exception {
     JavaSrc.ClassContent iClassC = iclass.get_classContent();
     if(iClassC.getSize_enumDefinition()>0) { 
