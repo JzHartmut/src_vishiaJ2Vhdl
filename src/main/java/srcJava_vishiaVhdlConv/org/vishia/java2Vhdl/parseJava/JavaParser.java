@@ -16,7 +16,6 @@ import org.vishia.util.Debugutil;
 import org.vishia.zbnf.ZbnfParseResultItem;
 import org.vishia.zbnf.ZbnfParser;
 import org.vishia.zbnf.GenZbnfJavaData;
-import org.vishia.zbnf.Zbnf2Xml;
 import org.vishia.zbnf.ZbnfJavaOutput;
 
 public class JavaParser {
@@ -53,9 +52,9 @@ public class JavaParser {
   static void genDstClassForContent() {
     //Note: the current dir should be the start of this src tree.
     String[] args_genJavaOutClass = 
-      { "-s:src/main/java/srcJava_vishiaVhdlConv/org/vishia/java2Vhdl/parseJava/JavaSyntax.zbnf"
+      { "-s:D:/vishia/Fpga/src_vishiaJ2Vhdl/src/main/java/srcJava_vishiaVhdlConv/org/vishia/java2Vhdl/parseJava/JavaSyntax.zbnf"
         , "-dirJava:$(TMP)/JavaParser"
-        , "-pkg:org.vishia.parseJava"
+        , "-pkg:org.vishia.java2Vhdl.parseJava"
         , "-class:JavaSrc"
         , "-struct:$(TMP)/JavaParser/JavaSyntax.zbnf.struct.txt"
         , "-all"
@@ -142,6 +141,7 @@ public class JavaParser {
         File fOut = new File(dirTmp, fileIn.getName() + ".javaData.html");
         JZtxtcmdTester.dataHtmlNoExc(result.dataJavaSrc, fOut, true);
       }
+      this.parser.clean();
       return result.dataJavaSrc;
     }    
   }
