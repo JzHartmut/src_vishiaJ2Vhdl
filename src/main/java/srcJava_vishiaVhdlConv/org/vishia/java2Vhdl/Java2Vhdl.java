@@ -1234,6 +1234,10 @@ public class Java2Vhdl {
   
   
   
+  /**This is only for the top instance. The update() copies values to the output.
+   * @param wOut
+   * @throws Exception
+   */
   void genOutput(StringBuilder wOut) throws Exception {
     for(Map.Entry<String, J2Vhdl_ModuleType> esrc:  this.fdata.idxModuleTypes.entrySet()) {
       J2Vhdl_ModuleType src = esrc.getValue();

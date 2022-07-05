@@ -434,7 +434,7 @@ public class VhdlConv {
         }
         
         if(bTrueFalse) {
-          out.append(indent);
+          if(out !=null) { out.append(indent); }
           genTrueFalse(out, exprLeft.b, lastPart, mdl, nameInnerClassVariable, indent, assignTerm);
         }
         else {

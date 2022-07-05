@@ -451,7 +451,7 @@ simpleValue::= [ /*J2Ctest<?J2Ctest>*/]  ##a test point for the translator. Debu
 | <$?TypeReflect>  \. class [?<!\\w?>]
 | [ -- <?preDecrement>| ++ <?preIncrement>|] [ <reference>] <simpleVariable>[ -- <?postDecrement>| ++ <?postIncrement>|]
 | <?classObject> [ <reference>] class                   ##either class of a type, or class of an instance like myData.class 
-| ( <?parenthesisExpression> <Expression>)
+| ( <?parenthesisExpression> <Expression> )
 | <?nullRef> null
 ]
 [<arrayElementAccess>]
