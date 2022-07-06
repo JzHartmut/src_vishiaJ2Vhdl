@@ -16,6 +16,11 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   *   <ul>{@link #genExprPartValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String)} renamed
+   *     from genExprPart ( ) before, because it uses only the value in a part. Better documented.
+   *   <li>{@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
+   *     regards the simpleCharLiteral in a simple value. 
+   *   </ul>
    * <li>2022-04-29 Hartmut chg in genSimpleValue(...) writes 0 if 0 was parsed, mistake if 0x0 was written. This is todo.
    * <li>2022-04-29 Hartmut chg in {@link #genSimpleValue(org.vishia.parseJava.JavaSrc.SimpleValue, boolean, CharSequence)}:
    *   now uses the new ZbnfParser feature and writes the parsed Source for hexa numbers instead the value
@@ -235,7 +240,7 @@ public final class VhdlExprTerm extends SrcInfo {
       bNeedBool = opPreced.opBool.bMaybeBool 
         && (genBool || this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype);
     
-      exprRight = genExprPart(part, bNeedBool, mdl, nameInnerClassVariable);
+      exprRight = genExprPartValue(part.get_value(), bNeedBool, mdl, nameInnerClassVariable);
       if(exprRight == null) {
         this.b.setLength(posEnd);                          // then remove the operator also again, 
         return true;                                      // faulty variable, especially mask, or time.
@@ -269,7 +274,7 @@ public final class VhdlExprTerm extends SrcInfo {
       this.b.append(exprRight.b).append(' ');              // "+ @" right side expression used, it is the before prepared one.
     } else { //only here if this.b is empty                // + part, then append the part from source expression to the term.
       assert(this.b.length() ==0);
-      if(!addPartValue(part, false, mdl, nameInnerClassVariable)) {    // false if the operand is not valid, a mask or time 
+      if(!addPartValue(part.get_value(), false, mdl, nameInnerClassVariable)) {    // false if the operand is not valid, a mask or time 
         this.b.setLength(posEnd);                          // then remove the operator also again, 
         return false;                                      // faulty variable, especially mask, or time.
       }
@@ -302,10 +307,10 @@ public final class VhdlExprTerm extends SrcInfo {
 
 
 
-  public static VhdlExprTerm genExprPart (JavaSrc.ExprPart part, boolean needBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) 
+  public static VhdlExprTerm genExprPartValue (JavaSrc.SimpleValue val, boolean needBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) 
       throws Exception {
     VhdlExprTerm thiz = new VhdlExprTerm(VhdlConv.d);
-    boolean bOk = thiz.addPartValue(part, needBool, mdl, nameInnerClassVariable);
+    boolean bOk = thiz.addPartValue(val, needBool, mdl, nameInnerClassVariable);
     return bOk ? thiz : null;
   }
   
@@ -319,9 +324,8 @@ public final class VhdlExprTerm extends SrcInfo {
    * @return not null only if a valid variable was written.
    * @throws Exception 
    */
-  private boolean addPartValue (JavaSrc.ExprPart part, boolean needBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) 
+  private boolean addPartValue (JavaSrc.SimpleValue val, boolean needBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) 
       throws Exception {
-    JavaSrc.SimpleValue val = part.get_value();        
     String sUnaryOp = val.get_unaryOperator();           // unary operator
     if(sUnaryOp !=null && !needBool) {
       if(sUnaryOp.equals("!")) { sUnaryOp = " NOT "; }
@@ -429,6 +433,8 @@ public final class VhdlExprTerm extends SrcInfo {
     else if(var !=null) {
       J2Vhdl_Variable varDescr =  this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
       if(varDescr !=null) {
+        if(varDescr.sElemJava.contains("ringMstLo_Pin"))
+          Debugutil.stop();
         this.setVariable(varDescr);
         this.exprType_.set(varDescr.type);
         this.b.append(varDescr.sElemVhdl);
@@ -545,6 +551,16 @@ public final class VhdlExprTerm extends SrcInfo {
         // this operations are for simulation. (TODO what about functions in VHDL, solution, use specific annotation and build a list of functions. 
       }
     }
+    else if(val.get_simpleCharLiteral() !=null) {          // it is especially to deal with STD_LOGIC
+      char cc = val.get_simpleCharLiteral().charAt(0);
+      if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
+        this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stdtype;  //'L' 'H' '0' etc. are standard types.
+        this.exprType_.nrofElements = 0;  //without "0x..."
+      } else {
+        Debugutil.stop();
+      }
+      this.b.append('\'').append(cc).append('\'');
+    }
     else {
       this.b.append("0");   //it seems to be an integer value with 0. Nothing is detected else.
     }
@@ -575,7 +591,7 @@ public final class VhdlExprTerm extends SrcInfo {
       || name.equals("time") || name.startsWith("time_") || name.equals("_time_")) {
       return null;                                       // all variables with time or not relevant
     }
-    if(name.equals("led"))
+    if(name.equals("ringMstLo_Pin"))
       Debugutil.stop();
       //else { vhdlError("reference only with a variable possible", ref);  sRef = "??."; }
     dbg="refnull";

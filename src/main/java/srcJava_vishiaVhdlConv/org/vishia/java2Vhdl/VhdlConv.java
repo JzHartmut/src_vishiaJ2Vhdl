@@ -21,6 +21,14 @@ public class VhdlConv {
   
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-06 Now supports char as STD_LOGIC. 
+   *   <ul>
+   *   <li>{@link #getOperator(ExprPart, VhdlExprTerm, boolean)} not using XNOR on = for STD_LOGIC, TODO document there
+   *   <li>{@link #genTrueFalse(Appendable, CharSequence, ExprPart, J2Vhdl_ModuleInstance, String, boolean, CharSequence, CharSequence)}
+   *     distinct between in/outside process using IF or WHEN, elsewhere also necessary, but for STD_LOGIC substantial (assignment '0' or '1' with ?-operator necessary).
+   *   <li>{@link #createVariable(org.vishia.java2Vhdl.parseJava.JavaSrc.VariableInstance, String, String, String, Map, Map)}:
+   *     Here the type char is regarded, and also yet int, short, byte, long   
+   *   </ul> 
    * <li>2022-04-29 {@link Fpga#setBit(int, int, boolean)} and setBits(...) implemented in another way.
    *   inside {@link #genAssignment(Appendable, VhdlExprTerm, J2Vhdl_Operator, VhdlExprTerm, ExprPart, org.vishia.parseJava.JavaSrc.ExprPartTrueFalse, CharSequence, boolean)}
    *   because it is an assignment. Regard types on assign.
@@ -300,8 +308,8 @@ public class VhdlConv {
     if(sOperator ==null) { sOperator = "@"; }            // the start of the expression.
     //
     J2Vhdl_Operator opPreced = J2Vhdl_Operator.operatorMap.get(sOperator);       // check the operator
-    if(opPreced.sCheckEqXor!=null && (!genBool && !exprLeft.exprType_.etype.bVector)) {
-      opPreced = J2Vhdl_Operator.operatorMap.get(opPreced.sCheckEqXor);
+    if(opPreced.sCheckEqXor!=null && (!genBool && !exprLeft.exprType_.etype.bVector && exprLeft.exprType_.etype != VhdlExprTerm.ExprTypeEnum.stdtype )) {
+      opPreced = J2Vhdl_Operator.operatorMap.get(opPreced.sCheckEqXor);   //document when this is used TODO
     }
     return opPreced;
   }
@@ -354,6 +362,8 @@ public class VhdlConv {
         if(part instanceof JavaSrc.ExprPartTrueFalse) {
           partTrueFalse = (JavaSrc.ExprPartTrueFalse) part;  // store till assignment or end
         }
+        if(exprLeft !=null && StringFunctions.startsWith(exprLeft.b, "ringMstLo_Pin"))
+          Debugutil.stop();
         J2Vhdl_Operator opPreced = getOperator(part, exprLeft, genBool);
         //
         //pop
@@ -435,7 +445,7 @@ public class VhdlConv {
         
         if(bTrueFalse) {
           if(out !=null) { out.append(indent); }
-          genTrueFalse(out, exprLeft.b, lastPart, mdl, nameInnerClassVariable, indent, assignTerm);
+          genTrueFalse(out, exprLeft.b, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
         }
         else {
           if(out !=null) {                                     // produce output if given
@@ -461,19 +471,31 @@ public class VhdlConv {
   
   
   private void genTrueFalse ( Appendable out, CharSequence cond, JavaSrc.ExprPart partTrueFalse_a
-      , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, CharSequence indent, CharSequence assignTerm) throws Exception {
+      , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
+      , boolean bInsideProcess, CharSequence indent
+      , CharSequence assignTerm
+      ) throws Exception {
     JavaSrc.ExprPartTrueFalse partTrueFalse = (JavaSrc.ExprPartTrueFalse) partTrueFalse_a;
-    out.append("IF ").append(cond).append(" THEN ");
-    StringBuilder exprTrue = new StringBuilder();
-    genExpression(exprTrue, partTrueFalse.get_trueExpr(), false, true, mdl, nameInnerClassVariable, indent, assignTerm);
-    out.append(exprTrue).append("").append(indent).append("ELSE ");
-    StringBuilder exprFalse = new StringBuilder();
-    genExpression(exprFalse, partTrueFalse.get_falseExpr(), false, true, mdl, nameInnerClassVariable, indent, assignTerm);
-    if(exprFalse.charAt(0) == '\n') {
-      exprFalse.delete(0, 1);                    // delete \n which comes from a nested IF
+    if(bInsideProcess) {                                   // inside of a process:
+      StringBuilder exprTrue = new StringBuilder();        // Note: assignTerm is the left side assignment variable with assign operator
+      genExpression(exprTrue, partTrueFalse.get_trueExpr(), false, true, mdl, nameInnerClassVariable, indent, assignTerm);
+      StringBuilder exprFalse = new StringBuilder();
+      genExpression(exprFalse, partTrueFalse.get_falseExpr(), false, true, mdl, nameInnerClassVariable, indent, assignTerm);
+      out.append("IF ").append(cond).append(" THEN ");
+      out.append(exprTrue).append("").append(indent).append("ELSE ");
+      if(exprFalse.charAt(0) == '\n') {
+        exprFalse.delete(0, 1);                    // delete \n which comes from a nested IF
+      }
+      out.append(exprFalse).append(" END IF;");
     }
-    out.append(exprFalse).append(" END IF;");
-
+    else {
+      if(StringFunctions.startsWith(cond, "data_Data.cmd(13)='1'"))
+        Debugutil.stop();
+      VhdlExprTerm exprTrue = genExpression(null, partTrueFalse.get_trueExpr(), false, true, mdl, nameInnerClassVariable, null, null);
+      VhdlExprTerm exprFalse = genExpression(null, partTrueFalse.get_falseExpr(), false, true, mdl, nameInnerClassVariable, null, null);
+      //TODO maybe check of assignTerm-type and exprLeft, exprRight-Type and convert.
+      out.append(indent).append(assignTerm).append(exprTrue.b).append(" WHEN ").append(cond).append(" ELSE ").append(exprFalse.b).append(";");
+    }
   }
   
   
@@ -499,6 +521,8 @@ public class VhdlConv {
     , boolean bInsideProcess
     ) throws Exception {
     VhdlExprTerm exprRight;
+    if(StringFunctions.startsWith(exprLeft.b, "ringMstLo_Pin"))
+      Debugutil.stop();
     if(exprRightArg !=null) {
       exprRight = exprRightArg;
     } else {
@@ -572,7 +596,7 @@ public class VhdlConv {
         }
       }
       if(exprRight ==null) {
-        exprRight = VhdlExprTerm.genExprPart(part, false, mdl, nameInnerClassVariable);
+        exprRight = VhdlExprTerm.genExprPartValue(part.get_value(), false, mdl, nameInnerClassVariable);
         //if(varAssign !=null && varAssign == exprLeft.variable() && nrAllOperands ==2)
         if(exprRight.variable() == exprLeft.variable()) {  // assign of same variable as first check
           if(StringFunctions.equals(exprLeft.b, exprRight.b)) { // then check expressions equal, then not necessary in VHDL
@@ -590,7 +614,7 @@ public class VhdlConv {
       if(exprLeft.variable().isLocal) {
         sOpVhdl = " := ";
       }
-      if(exprLeft.variable().name.equals("rxDchg"))
+      if(exprLeft.variable().name.equals("FpgaIO_SpeAcard_22_02.output.ringMstLo_Pin"))
         Debugutil.stop();
       J2Vhdl_Variable varAssign = exprLeft.variable();
       if(varAssign ==null) {
@@ -601,10 +625,10 @@ public class VhdlConv {
       //assert(exprLeft.exprType_.etype == typeVar.etype && exprLeft.exprType_.nrofElements == typeVar.nrofElements);
       //if(part instanceof JavaSrc.ExprPartTrueFalse) {
       if(partTrueFalse !=null) {
-        exprRight.convertToBool();
+        exprRight.convertToBool();                         // need bool in IF() or WHEN()
         StringBuilder assignTerm = new StringBuilder(exprLeft.b);
         assignTerm.append(" ").append(sOpVhdl);
-        genTrueFalse(out, exprRight.b, partTrueFalse, mdl, nameInnerClassVariable, indent, assignTerm);
+        genTrueFalse(out, exprRight.b, partTrueFalse, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
         if(out != exprLeft.b) { appendLineColumn(out, exprLeft); }
       }
       else if(exprRight.precedSegm == J2Vhdl_Operator.operatorMap.get("=")) {// it is an assignement, via setBits(....)
@@ -665,7 +689,7 @@ public class VhdlConv {
     assert(expr.getSize_ExprPart()==1);
     VhdlExprTerm dstTerm = null;
     for(JavaSrc.ExprPart part : expr.get_ExprPart()) {
-      dstTerm = VhdlExprTerm. genExprPart(part, false, mdl, nameInnerClassVariable);
+      dstTerm = VhdlExprTerm. genExprPartValue(part.get_value(), false, mdl, nameInnerClassVariable);
     }
     return dstTerm;
   }
@@ -1106,7 +1130,7 @@ public class VhdlConv {
       JavaSrc.ModifierVariable modzp = varzp.get_ModifierVariable();
       boolean bTypeAnnot = false;
       if(modzp !=null && modzp.getSize_Annotation() >0) //...for
-      for(String annot: modzp.get_Annotation()) {
+      for(String annot: modzp.get_Annotation()) {          // The type of int or long is clarified with a Annotation
         if(annot !=null) {
           if(annot.startsWith("Fpga.BITVECTOR")) {
             eType.etype = VhdlExprTerm.ExprTypeEnum.bitVtype;
@@ -1132,8 +1156,17 @@ public class VhdlConv {
           }
         }
       }// for annotation
-      if(!bTypeAnnot) {
-        eType.etype = typezp.get_name().equals("boolean") ? VhdlExprTerm.ExprTypeEnum.bittype :  VhdlExprTerm.ExprTypeEnum.bittype;
+      if(!bTypeAnnot) {                                    // Annotation not given:
+        String sTypeJava = typezp.get_name();
+        if(sTypeJava.equals("boolean")) {
+          eType.etype = VhdlExprTerm.ExprTypeEnum.bittype; // boolean is BIT 
+        } else if(sTypeJava.equals("char")) {
+          eType.etype = VhdlExprTerm.ExprTypeEnum.stdtype; // char is STD_ with the known possible values.
+        } else if(sTypeJava.equals("short") || sTypeJava.equals("int") || sTypeJava.equals("long") || sTypeJava.equals("byte")){
+          eType.etype = VhdlExprTerm.ExprTypeEnum.inttype; // all integer numeric types are  INTEGER.
+        } else {
+          vhdlError("Variable type not supported in J2VHDL: " + sTypeJava, varzp);
+        }
       }
       final String sElemVhdl = sRecVhdl.equals("Trenz_SpeA_InputPins.") ? name :  sRecVhdl + name;
       final String sElemJava = sObjJava +name;
