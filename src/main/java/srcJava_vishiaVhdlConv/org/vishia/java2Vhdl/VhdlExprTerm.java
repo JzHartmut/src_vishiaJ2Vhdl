@@ -16,6 +16,8 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-06 conversion routines on AND, OR etc. with mix logic (BIT, STD_LOGIC).
+   * <li>2022-07-06 Now supports char as STD_LOGIC. 
    *   <ul>{@link #genExprPartValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String)} renamed
    *     from genExprPart ( ) before, because it uses only the value in a part. Better documented.
    *   <li>{@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
@@ -62,21 +64,21 @@ public final class VhdlExprTerm extends SrcInfo {
   /**Type of a variable and a build expression.
    */
   enum ExprTypeEnum {
-      undef   (0)
-    , bittype (0)
-    , bitStdConst (0)   //'1'
-    , bitStdVconst(1)   //"1100"
-    , numConst(0)
-    , bitVtype(1)
-    , stdtype (0)
-    , stdVtype(1)
-    , booltype(0)
-    , boolUncompleteType(0)
-    , inttype (1)
-    , uinttype(1);
+      undef   (0,0)
+    , bittype (0,0)
+    , bitStdConst (0,1)   //'1'
+    , bitStdVconst(1,1)   //"1100"
+    , numConst(0,1)
+    , bitVtype(1,0)
+    , stdtype (0,0)
+    , stdVtype(1,0)
+    , booltype(0,0)
+    , boolUncompleteType(0,0)
+    , inttype (1,0)
+    , uinttype(1,0);
     
-    boolean bVector;
-    ExprTypeEnum(int bVector){ this.bVector = bVector !=0; }
+    boolean bVector, bConst;
+    ExprTypeEnum(int bVector, int bConst){ this.bVector = bVector !=0; this.bConst = bConst !=0; }
   }
 
   static class ExprType {
@@ -225,37 +227,62 @@ public final class VhdlExprTerm extends SrcInfo {
 
 
 
-  public boolean exprLeftAddOperand ( VhdlExprTerm exprRightArg, J2Vhdl_Operator opPreced, JavaSrc.ExprPart part
+  /**Adds an operator and operand to the expression.
+   * @param exprRightArg maybe null, or given, the right part of expression
+   * @param opPreced the operator
+   * @param part if exprRightArg not given, read from part from parser result
+   * @param genBool true then a boolean expression should be generated (used in IF etc.)
+   * @param mdl The module
+   * @param nameInnerClassVariable
+   * @return true: ok, false: do not use this expression, it is not for VHDL 
+   * @throws Exception
+   */
+  public boolean addOperand ( VhdlExprTerm exprRightArg, J2Vhdl_Operator opPreced, JavaSrc.ExprPart part
       , boolean genBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
     //
     if( ! super.containsInfo()) { 
       super.setSrcInfo(part);                              // store the source info from the first part
     }
     int posEnd = this.b.length();
-    boolean bNeedBool;
     final VhdlExprTerm exprRight;
     if(exprRightArg !=null) { exprRight = exprRightArg; }  // use given exprRight, maybe a more complex term
     else if(this.b.length() ==0) { exprRight = null; }     // add part to the empty this ExprPart, for the first part of a term
     else {                                                 // prepare the exprRight from part to add to this.
-      bNeedBool = opPreced.opBool.bMaybeBool 
+      final boolean bNeedBoolRight = opPreced.opBool.bMaybeBool 
         && (genBool || this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype);
     
-      exprRight = genExprPartValue(part.get_value(), bNeedBool, mdl, nameInnerClassVariable);
+      exprRight = genExprPartValue(part.get_value(), bNeedBoolRight, mdl, nameInnerClassVariable);
       if(exprRight == null) {
         this.b.setLength(posEnd);                          // then remove the operator also again, 
         return true;                                      // faulty variable, especially mask, or time.
       }
-      if( bNeedBool) {
+      if( bNeedBoolRight) {
         exprRight.fulfillNeedBool(true);
       }
-      J2Vhdl_Variable varRigth = exprRight.variable();
-      //TODO adjust types if necessary. TODO use orignal type of this, saved, before changing by operator.
+//      J2Vhdl_Variable varRight = exprRight.variable();
     }
-    //
+    final boolean bNeedBoolLeft = (exprRight !=null && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype)
+    || opPreced.opBool.bMaybeBool && genBool;              // The operator supports bool and bool is requested
+    // 
+    if(  !bNeedBoolLeft && exprRight !=null                    // if bNeedBool, then conversion to boolean is anyway done in exprLeftAppendOperator in immediately following block
+      && !exprRight.exprType_.etype.bConst                 // typical case, right constant, should be proper, tested in VHDL
+      && !exprRight.exprType_.etype.bVector                // vector types should be clarified in source, tested in VHDL
+      && this.exprType_.etype != exprRight.exprType_.etype // the interest case is BIT vs. STD_LOGIC should be handled.
+      ) {
+      if( this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype) {
+        if( exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.stdtype) {
+          exprRight.b.insert(0, "TO_BIT(").append(")");    // use that type, which is given from left, either BIT or STD_LOGIC
+        }
+      } 
+      else if( this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.stdtype) {
+        if( exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype) {
+          exprRight.b.insert(0, "TO_STDULOGIC(").append(")");  //TP_STD_LOGIC does not exists, only STDULOGIC, should be work always.
+        }
+      }
+    }
+    //    
     if(posEnd >0) {                                        // empty on first left operand. 
-      bNeedBool = (exprRight !=null && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype)
-      || opPreced.opBool.bMaybeBool && genBool;
-      this.exprLeftAppendOperator(opPreced, bNeedBool);    // continue the expression term with operator. 
+      this.exprLeftAppendOperator(opPreced, bNeedBoolLeft);// add operator to the expression term, maybe first left side convert to bool. 
     } else {
       if(!opPreced.sJava.equals("@")) {
         System.err.println("exprLeftAddOperand: Start expression faulty");
@@ -263,13 +290,6 @@ public final class VhdlExprTerm extends SrcInfo {
       assert(opPreced.sJava.equals("@"));                  // the first for empty term is always the @ operator (set accu)
     }
     //-------------------------------------------------    // needBool for the next following operator:
-//    this.bNeedBool = !opPreced.opBool.bForceToBool         // if this operator forces a bool (compare operator) then it is bool, do not need bool
-//      && !(exprRight !=null && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype)  // if exprRight is given already as bool, the expression is bool.
-//      && (  genBool                                        // need bool if boolean should be the result type of the expression, then all parts should be bool
-//          || this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype);         // or need bool of this part if the rest is bool.
-//    if(this.bNeedBool) {                                   // if it needs bool, then it IS NOT bool (for other quests):
-//      this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.boolUncompleteType;        // will be a complete bool with the supplementation with the ='1' to bool operator.
-//    }
     if(exprRight !=null) {
       this.b.append(exprRight.b).append(' ');              // "+ @" right side expression used, it is the before prepared one.
     } else { //only here if this.b is empty                // + part, then append the part from source expression to the term.
@@ -284,6 +304,8 @@ public final class VhdlExprTerm extends SrcInfo {
     return true;
   }
 
+  
+  
   private void exprLeftAppendOperator ( J2Vhdl_Operator opPreced, boolean bNeedBool ) {
     if(opPreced.precedVhdl > this.precedSegm.precedVhdl) {    // ensure higher precedence of current part in infix form
       this.b.insert(0, " (").append(") ");

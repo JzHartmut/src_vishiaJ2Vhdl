@@ -385,7 +385,7 @@ public class VhdlConv {
         // Write subordinate expression terms in parenthesis if they have a lower precedence
         // or also on equal precedence in VHDL. 
         // Writing equal precedence in parenthesis is then necessary if they come from own terms
-        // of for a special VHDL problem: Because som VHDL Translators tests (...AND  ...)
+        // of for a special VHDL problem: Because some VHDL Translators tests (...AND  ...)
         // (parenthesis surround AND terms though there are unnecessary in VHDL).
         // Example: b1 OR b2 AND b3 is clarified and correct in VHDL: Execute it in order, OR first, then AND.
         //          But the tools tests whether it is written (b1 OR b2) AND b3 because supposing of an writing error
@@ -416,14 +416,14 @@ public class VhdlConv {
           if(bUseTrueFalse) {
             Debugutil.stop();     //what TODO
           }
-          bLastWasAssignment = false;                        // add operator operand
+          bLastWasAssignment = false;                      // add operator operand
           //
           //>>>>>>>
           if(bStopExprPart)
             Debugutil.stop();
-          boolean bOk = exprLeft.exprLeftAddOperand(exprRight, opPreced, part, genBool, mdl, nameInnerClassVariable); 
-          if(!bOk) {
-            if(nrAllOperands == 0) {break; }                 // first variable unknown, not necessary statement (time assignment etc.).
+          boolean bOk = exprLeft.addOperand(exprRight, opPreced, part, genBool, mdl, nameInnerClassVariable); 
+          if(!bOk) {                                       // addOperand makes also some type adaption.
+            if(nrAllOperands == 0) {break; }               // first variable unknown, not necessary statement (time assignment etc.).
           }
           nrAllOperands +=1;
         }

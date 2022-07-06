@@ -1,0 +1,23 @@
+= Java logic description - Writing outputs for test
+:toc:
+:toclevels: 4
+:sectnums:
+:sectlinks:
+:max-width: 52em
+:prewrap!:
+:cpp: C++
+:cp: C/++
+:wildcard: *
+:stylesheet: my.css
+
+Version: 2022-06-04
+
+
+== Approach
+
+This document describes how the output lines are written for simulation tests of FPGA in Java. 
+
+== Content
+
+(TODO)
+
