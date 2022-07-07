@@ -444,8 +444,10 @@ public class VhdlConv {
         }
         
         if(bTrueFalse) {
-          if(out !=null) { out.append(indent); }
-          genTrueFalse(out, exprLeft.b, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
+          String cond = exprLeft.b.toString();
+          exprLeft.b.setLength(0);
+          genTrueFalse(exprLeft.b, cond, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
+          if(out !=null) { out.append(indent).append(exprLeft.b); }
         }
         else {
           if(out !=null) {                                     // produce output if given
@@ -491,10 +493,12 @@ public class VhdlConv {
     else {
       if(StringFunctions.startsWith(cond, "data_Data.cmd(13)='1'"))
         Debugutil.stop();
-      VhdlExprTerm exprTrue = genExpression(null, partTrueFalse.get_trueExpr(), false, true, mdl, nameInnerClassVariable, null, null);
-      VhdlExprTerm exprFalse = genExpression(null, partTrueFalse.get_falseExpr(), false, true, mdl, nameInnerClassVariable, null, null);
+      VhdlExprTerm exprTrue = genExpression(null, partTrueFalse.get_trueExpr(), false, bInsideProcess, mdl, nameInnerClassVariable, null, null);
+      VhdlExprTerm exprFalse = genExpression(null, partTrueFalse.get_falseExpr(), false, bInsideProcess, mdl, nameInnerClassVariable, null, null);
       //TODO maybe check of assignTerm-type and exprLeft, exprRight-Type and convert.
-      out.append(indent).append(assignTerm).append(exprTrue.b).append(" WHEN ").append(cond).append(" ELSE ").append(exprFalse.b).append(";");
+      if(assignTerm !=null) { out.append(indent).append(assignTerm); }
+      out.append(exprTrue.b).append(" WHEN ").append(cond).append(" ELSE ").append(exprFalse.b);
+      if(assignTerm !=null) { out.append(";"); }
     }
   }
   

@@ -40,13 +40,13 @@
 2022-05-20 17:42:14  x     J2Vhdl_Operator.java                     ::          5.312  0498757600 
 2022-05-15 23:42:58  x     J2Vhdl_Variable.java                     ::          1.936  1915599024 
 2022-06-29 12:10:29  x     Java2Vhdl.java                           ::         65.100 -1648526297 
-2022-07-06 19:36:52  x     VhdlConv.java                            ::         62.518  1547694586 
+2022-07-07 12:00:52  x     VhdlConv.java                            ::         62.714  1293150223 
 2022-07-06 20:15:51  x     VhdlExprTerm.java                        ::         28.935  1476301905 
 2022-05-01 19:36:22  x     VhdlTemplate.txt                         ::           .333 -0888383234 
 
 ============================== src/main/java/srcJava_vishiaVhdlConv/org/vishia/java2Vhdl/parseJava/ ===
 2022-06-09 20:22:55  x     JavaParser.java                          ::          6.675 -1256241975 
-2022-05-30 22:04:14  x     JavaSrc.java                             ::         40.718  0050858659 
+2022-07-07 11:55:40  x     JavaSrc.java                             ::         40.871 -0293268991 
 2022-05-30 22:03:30  x     JavaSrc_Base.java                        ::        105.661  0031464402 
 2022-05-30 22:03:38  x     JavaSrc_Zbnf.java                        ::        197.836  0249160420 
 2022-07-04 20:50:21  x     JavaSyntax.zbnf                          ::         23.142 -1924473912 

@@ -1431,7 +1431,10 @@ public class JavaSrc extends JavaSrc_Base {
         b.append(super.constNumber.toString());
       }
       else if(super.simpleStringLiteral !=null) {
-        b.append(super.simpleCharLiteral);
+        b.append('\"').append(super.simpleStringLiteral).append('\"');
+      }
+      else if(super.simpleCharLiteral !=null) {
+        b.append('\'').append(super.simpleCharLiteral).append('\'');
       }
 //      else if(super.booleanConst !=null) {
 //        b.append(super.booleanConst);
