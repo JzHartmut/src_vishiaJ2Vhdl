@@ -398,11 +398,16 @@ public final class VhdlExprTerm extends SrcInfo {
    */
   boolean genSimpleValue(JavaSrc.SimpleValue val, boolean genBool, J2Vhdl_ModuleInstance mdlArg, String nameIclassArg, CharSequence indent) throws Exception {
     try {
+      String s = val.toString();
+      boolean dbgStop = false;
+      String s1 = val.toString();
       if(VhdlConv.d.dbgStop) {
         int[] lineColumn = new int[2];
         String file = val.getSrcInfo(lineColumn); //BlinkingLed_Fpga
-        if(file.contains("FpgaTop_SpeA.java") && lineColumn[0] >= 186 && lineColumn[0] <= 186)
-          Debugutil.stop();
+        dbgStop = file.contains("BlinkingLedCt.java") && lineColumn[0] >= 71 && lineColumn[0] <= 170;
+      }
+      if(dbgStop){
+        Debugutil.stop();
       }
       boolean bOk = true;
       J2Vhdl_ModuleInstance mdlRef = mdlArg;                 // Generally use mdlRef, maybe other referenced module
@@ -436,11 +441,14 @@ public final class VhdlExprTerm extends SrcInfo {
             }
           }
           sNameIclass = nameIclassArg;         
+          bReferencedModule = true;
         } else if(sRef ==null) {          //do nothing if sRef is not given (maybe only for bIsThis)
         } else if(sRef.equals("z")) {
           sNameIclass = nameIclassArg;
+          bReferencedModule = true;
         } else if(sRef.equals("mdl")) {
           sNameIclass = null;             // maybe null if operation of the module is called.
+          bReferencedModule = true;
           //bRefNextUsed = true;
         } else if(sRef.equals("ref")) {                      // get the referenced module, and maybe an inner sAccess
           J2Vhdl_ModuleInstance.InnerAccess mdlRef2 = mdlRef.idxAggregatedModules.get(sRefNext);
@@ -450,8 +458,8 @@ public final class VhdlExprTerm extends SrcInfo {
             mdlRef = mdlRef2.mdl;
             sNameRefIfcAccess = mdlRef2.sAccess;             // set if a interface agent is used to access, 
             assert(sNameRefIfcAccess == null || sNameRefIfcAccess.length() >0);  //null if the interface is implemented in the module.
-            bReferencedModule = true;
           }
+          bReferencedModule = true;
           sNameIclass = "";
           bRefNextUsed = true;
         } else if(sRef.equals("Fpga")) {     // static reference Fpga...
@@ -471,7 +479,7 @@ public final class VhdlExprTerm extends SrcInfo {
         ref = refNext;
         
       } // while ref2 !=null                                 // ^^^^^^ end reference evaluated ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      if(sNameIclass ==null && nameIclassArg !=null && nameIclassArg.length()>0) {
+      if(!bReferencedModule && sNameIclass ==null && nameIclassArg !=null && nameIclassArg.length()>0) {
         sNameIclass = nameIclassArg;  //for simple variables, necessary if first an operation is called without sNameIclass of course.
       }
       //
@@ -567,12 +575,14 @@ public final class VhdlExprTerm extends SrcInfo {
           this.b.append(src);                  // it is usual "0", TODO save info for type of scanned number, as attribute
         }
       } //if constNr
-      //    -------------------------------------------------------------------------------------------
+      //    ------------------------------------------------- simpleMethodCall ----------------------------------------------
       else if(val.get_simpleMethodCall() !=null) {           // operation(), either Fpga.getBits(..) ... or interface()
         final JavaSrc.SimpleMethodCall sFn = val.get_simpleMethodCall();
         final JavaSrc.ActualArguments args = sFn.get_actualArguments();
         final Iterator <JavaSrc.Expression> iArgs = args ==null ? null: args.get_Expression().iterator();
         String name = sFn.get_methodName();
+        if(dbgStop)
+          Debugutil.stop();
         if(sRef !=null && sRef.equals("Fpga")) {             // static operation from the Fpga class
           try {                                              //Fpga.getBit(...) etc.
             VhdlConv.GenOperation genOperation = VhdlConv.d.idxFpgaOperations.get(name);
@@ -580,7 +590,7 @@ public final class VhdlExprTerm extends SrcInfo {
               Debugutil.stop();
               this.b.append("??").append(name).append("??");
             } else {
-              genOperation.genOperation(iArgs, this, mdlRef, sNameIclass);
+              genOperation.genOperation(iArgs, this, mdlRef, nameIclassArg);
             }
           } catch(NoSuchElementException exc) {
             System.err.println(exc.getMessage());
@@ -589,10 +599,13 @@ public final class VhdlExprTerm extends SrcInfo {
           // Hint the update operation is evaluated to find assignments to the output.
           // operation of mdl level are for testing, not intent to be interface calls.
         } else if(bReferencedModule) {                       // operation call via ref module is an interface operation
-          String sIfcName = ( sNameRefIfcAccess == null 
-                            ? (sNameIclass !=null && sNameIclass.length() >0 ? sNameIclass + "." : "") 
-                            : sNameRefIfcAccess + "." ) 
-                          + name;
+          String sIfcName;
+          if(sNameRefIfcAccess == null) {
+            sIfcName = (sNameIclass !=null && sNameIclass.length() >0 ? sNameIclass + "." : "") + name;
+            sNameIclass = null;                            // it was used to build the sIfcName, not part of the variable access.
+          } else {
+            sIfcName = sNameRefIfcAccess + "." + name;
+          }
           J2Vhdl_ModuleType.IfcConstExpr ifcDef = mdlRef ==null ? null : mdlRef.type.idxIfcExpr.get(sIfcName);
           if(ifcDef == null) {
             VhdlConv.vhdlError("VhdlExprTerm.genSimpleValue() - Interface operation not found: " + sIfcName + " in module: " + (mdlRef == null ? "??unknown" : mdlRef.nameInstance), val);
@@ -603,8 +616,8 @@ public final class VhdlExprTerm extends SrcInfo {
             this.b.append(cvar.sElemVhdl);
           } else if(ifcDef.expr !=null){
             boolean bInsideProcess = true;
-            String sNameIclassOp = null;                   // because inside the operation the outside reference to the call is not relevant. 
-            VhdlExprTerm ifcTerm = VhdlConv.d.genExpression(null, ifcDef.expr, genBool, bInsideProcess, mdlRef, sNameIclassOp, indent, null);
+            //String sNameIclassOp = nameIclassArg;                   // because inside the operation the outside reference to the call is not relevant. 
+            VhdlExprTerm ifcTerm = VhdlConv.d.genExpression(null, ifcDef.expr, genBool, bInsideProcess, mdlRef, sNameIclass, indent, null);
             this.exprType_.etype = ifcTerm.exprType_.etype;
             this.exprType_.nrofElements = ifcTerm.exprType_.nrofElements;
             this.nrOperands += ifcTerm.nrOperands;

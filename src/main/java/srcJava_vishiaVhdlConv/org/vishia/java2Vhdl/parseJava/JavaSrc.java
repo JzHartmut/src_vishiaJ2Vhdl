@@ -544,6 +544,10 @@ public class JavaSrc extends JavaSrc_Base {
     
     
     @Override public String toString() {
+      return showInfo() + showSrcInfo();
+    }
+    
+    public String showInfo ( ) {
       StringBuilder b = new StringBuilder(200);
       for(ExprPart part: super.exprPart) {
         b.append(part.toString()).append("; ");
@@ -876,6 +880,9 @@ public class JavaSrc extends JavaSrc_Base {
       }
       else if(super.hexNumber !=0) {
         return "0x" + Integer.toHexString(super.hexNumber);
+      }
+      else if(sNumber !=null ) {
+        return sNumber;
       }
       else return "TODO toString";
     }
@@ -1296,27 +1303,30 @@ public class JavaSrc extends JavaSrc_Base {
     }
   
     @Override public String toString ( ) { 
+      return showInfo() + showSrcInfo();
+    }
+  
+    public String showInfo ( ) { 
       StringBuilder bu = null;
       if(super.reference !=null) {
         bu = new StringBuilder(100); 
-        bu.append(super.reference.toString()).append(".");
+        bu.append(super.reference.showInfo()).append(".");
         if(super.isThis !=null) { bu.insert(0, "this."); }
         if(super.isSuper !=null) { bu.insert(0, "super."); }
-        if(super.expression !=null) { bu.append(super.expression.toString()).append("."); }
-        else if(super.referenceAssociation !=null) { bu.append(super.referenceAssociation.toString()).append("."); }
-        else { bu.append("??ref"); }
+        if(super.expression !=null) { bu.insert(0, super.expression.showInfo()+"."); }
+        else if(super.referenceAssociation !=null) { bu.insert(0, super.referenceAssociation.showInfo()+"."); }
+        else { bu.insert(0,"??ref"); }
         return bu.toString();
       }
       else {
-        if(super.expression !=null) return super.expression.toString() + ".";
+        if(super.expression !=null) return super.expression.showInfo() + ".";
         else if(super.isThis !=null) return "this.";
         else if(super.isSuper !=null) return "super.";
-        else if(super.referenceAssociation !=null) { return super.referenceAssociation.toString() + "."; }
+        else if(super.referenceAssociation !=null) { return super.referenceAssociation.showInfo() + "."; }
         else return "TODO reference";
       }
     }
-  
-  }
+    }
 
 
 
@@ -1417,12 +1427,12 @@ public class JavaSrc extends JavaSrc_Base {
     @Override public String toString ( ) { 
       StringBuilder b = new StringBuilder(100);
       if(super.unaryOperator !=null) { b.append(super.unaryOperator); }
-      if(super.reference !=null) { b.append(super.reference.toString());}
+      if(super.reference !=null) { b.append(super.reference.showInfo());}
       if(super.simpleVariable !=null) { 
-        b.append(super.simpleVariable.toString());
+        b.append(super.simpleVariable.showInfo());
       }  
       else if(super.expression !=null) {
-        b.append( "(").append(super.get_Expression().toString()).append(")");
+        b.append( "(").append(super.get_Expression().showInfo()).append(")");
       }
       else if(super.simpleMethodCall !=null) {
         b.append(super.simpleMethodCall.methodName).append("(...)");
@@ -1442,6 +1452,7 @@ public class JavaSrc extends JavaSrc_Base {
       else {
         b.append("TODO SimpleValue.toString()");
       }
+      b.append(showSrcInfo());
       return b.toString();
     }
   
@@ -1458,9 +1469,12 @@ public class JavaSrc extends JavaSrc_Base {
   
   
     @Override public String toString ( ) { 
+      return super.variableName + showSrcInfo();
+    }
+    
+    public String showInfo ( ) { 
       return super.variableName;
     }
-  
   }
 
 
