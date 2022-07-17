@@ -16,6 +16,9 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-17 in  {@link #addOperand(VhdlExprTerm, J2Vhdl_Operator, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, boolean, J2Vhdl_ModuleInstance, String)}:
+   *   Detection whether the rightExpr supplies a {@link VhdlExprTerm.ExprTypeEnum#stateBit} with a == operator. 
+   *   Then it produces a simple access to the proper state variable bit. Usefull for 1 to n decoded states.
    * <li>2022-07-17 in {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
    *   Now longer references are possible as only three stages. With them an access in internal coding of a enum state is possible. 
    * <li>2022-07-17 in {@link #getVariableAccess(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleVariable, J2Vhdl_ModuleInstance, String):
@@ -63,7 +66,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2022-05-02"; 
+  public final static String sVersion = "2022-07-17"; 
 
   
   /**Type of a variable and a build expression.
@@ -80,6 +83,7 @@ public final class VhdlExprTerm extends SrcInfo {
     , booltype(0,0)
     , boolUncompleteType(0,0)
     , inttype (1,0)
+    , stateBit(0, 1)
     , uinttype(1,0);
     
     boolean bVector, bConst;
@@ -250,13 +254,15 @@ public final class VhdlExprTerm extends SrcInfo {
     }
     int posEnd = this.b.length();
     final VhdlExprTerm exprRight;
-    if(exprRightArg !=null) { exprRight = exprRightArg; }  // use given exprRight, maybe a more complex term
+    if(exprRightArg !=null) {                              // exprRightArg is than given if it comes from the operand precedence. It is calculated independent. 
+      exprRight = exprRightArg;                             // use given exprRight, maybe a more complex term
+    }
     else if(this.b.length() ==0) { exprRight = null; }     // add part to the empty this ExprPart, for the first part of a term
     else {                                                 // prepare the exprRight from part to add to this.
       final boolean bNeedBoolRight = opPreced.opBool.bMaybeBool 
         && (genBool || this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype);
-    
-      exprRight = genExprPartValue(part.get_value(), bNeedBoolRight, mdl, nameInnerClassVariable);
+      //>>>>>>>                                            // should be independently prepared, to adapt some conversions etc.
+      exprRight = genExprPartValue(part.get_value(), opPreced, bNeedBoolRight, mdl, nameInnerClassVariable);
       if(exprRight == null) {
         this.b.setLength(posEnd);                          // then remove the operator also again, 
         return true;                                      // faulty variable, especially mask, or time.
@@ -286,22 +292,29 @@ public final class VhdlExprTerm extends SrcInfo {
       }
     }
     //    
-    if(posEnd >0) {                                        // empty on first left operand. 
-      this.exprLeftAppendOperator(opPreced, bNeedBoolLeft);// add operator to the expression term, maybe first left side convert to bool. 
-    } else {
-      if(!opPreced.sJava.equals("@")) {
-        System.err.println("exprLeftAddOperand: Start expression faulty");
-      }
-      assert(opPreced.sJava.equals("@"));                  // the first for empty term is always the @ operator (set accu)
+    if(exprRight !=null && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.stateBit) {
+      assert(opPreced.sJava.equals("=="));
+      this.b.append("(").append(exprRight.b).append(") = '1'");  // This is only a simple access to the proper bit of the state variable vector.
+      this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.booltype;  //because it is a bit comparison instead state comparison
     }
-    //-------------------------------------------------    // needBool for the next following operator:
-    if(exprRight !=null) {
-      this.b.append(exprRight.b).append(' ');              // "+ @" right side expression used, it is the before prepared one.
-    } else { //only here if this.b is empty                // + part, then append the part from source expression to the term.
-      assert(this.b.length() ==0);
-      if(!addPartValue(part.get_value(), false, mdl, nameInnerClassVariable)) {    // false if the operand is not valid, a mask or time 
-        this.b.setLength(posEnd);                          // then remove the operator also again, 
-        return false;                                      // faulty variable, especially mask, or time.
+    else {
+      if(posEnd >0) {                                        // empty on first left operand. 
+        this.exprLeftAppendOperator(opPreced, bNeedBoolLeft);// add operator to the expression term, maybe first left side convert to bool. 
+      } else {
+        if(!opPreced.sJava.equals("@")) {
+          System.err.println("exprLeftAddOperand: Start expression faulty");
+        }
+        assert(opPreced.sJava.equals("@"));                  // the first for empty term is always the @ operator (set accu)
+      }
+      //-------------------------------------------------    // needBool for the next following operator:
+      if(exprRight !=null) {
+        this.b.append(exprRight.b).append(' ');              // "+ @" right side expression used, it is the before prepared one.
+      } else { //only here if this.b is empty                // + part, then append the part from source expression to the term.
+        assert(this.b.length() ==0);
+        if(!addPartValue(part.get_value(), false, mdl, nameInnerClassVariable)) {    // false if the operand is not valid, a mask or time 
+          this.b.setLength(posEnd);                          // then remove the operator also again, 
+          return false;                                      // faulty variable, especially mask, or time.
+        }
       }
     }
     this.nrOperands +=1;
@@ -334,9 +347,10 @@ public final class VhdlExprTerm extends SrcInfo {
 
 
 
-  public static VhdlExprTerm genExprPartValue (JavaSrc.SimpleValue val, boolean needBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) 
+  public static VhdlExprTerm genExprPartValue (JavaSrc.SimpleValue val, J2Vhdl_Operator op, boolean needBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) 
       throws Exception {
     VhdlExprTerm thiz = new VhdlExprTerm(VhdlConv.d);
+    thiz.precedSegm = op;
     boolean bOk = thiz.addPartValue(val, needBool, mdl, nameInnerClassVariable);
     return bOk ? thiz : null;
   }
@@ -356,7 +370,7 @@ public final class VhdlExprTerm extends SrcInfo {
     if(VhdlConv.d.dbgStop) {
       int[] lineColumn = new int[2];
       String file = val.getSrcInfo(lineColumn); //BlinkingLed_Fpga
-      if(file.contains("SpiData.java") && lineColumn[0] >= 391 && lineColumn[0] <= 391)
+      if(file.contains("dRxSpe.java") && lineColumn[0] >= 120 && lineColumn[0] <= 120)
         Debugutil.stop();
     }
     String sUnaryOp = val.get_unaryOperator();           // unary operator
@@ -367,6 +381,7 @@ public final class VhdlExprTerm extends SrcInfo {
       this.b.append(sUnaryOp);
       this.posAfterUnary = this.b.length();
     }
+    // >>>>>>>>>>>>>>>
     boolean bOk = genSimpleValue(val, false, mdl, nameInnerClassVariable, null);
     if(bOk && needBool) { // && this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.booltype) {
       if(sUnaryOp !=null) {
@@ -404,7 +419,7 @@ public final class VhdlExprTerm extends SrcInfo {
       if(VhdlConv.d.dbgStop) {
         int[] lineColumn = new int[2];
         String file = val.getSrcInfo(lineColumn); //BlinkingLed_Fpga
-        dbgStop = file.contains("BlinkingLedCt.java") && lineColumn[0] >= 71 && lineColumn[0] <= 170;
+        dbgStop = file.contains("XRxSpe.java") && lineColumn[0] >= 120 && lineColumn[0] <= 120;
       }
       if(dbgStop){
         Debugutil.stop();
@@ -418,6 +433,7 @@ public final class VhdlExprTerm extends SrcInfo {
       String sNameRefIfcAccess = null;
       boolean bRefIclass = false;                            // true then iClass is set per reference
       boolean bReferencedModule = false;
+      boolean bRefToType = false;
       while(ref !=null) {
         boolean bIsThis = ref.get_isThis()!=null;
         JavaSrc.SimpleVariable var = ref.get_referenceAssociation();
@@ -467,7 +483,12 @@ public final class VhdlExprTerm extends SrcInfo {
           if(sNameIclass!=null && sNameIclass.length() >0) {
             if(sNameIclass.equals("YRxSpeData"))
               Debugutil.stop();
-            sNameIclass += "." + sRef;
+            if(Character.isUpperCase(sNameIclass.charAt(0)) && Character.isUpperCase(sRef.charAt(0))) {
+              sNameIclass += "_" + sRef;
+              bRefToType = true;                           // ClassType.Enumtype as global access
+            } else {
+              sNameIclass += "." + sRef;
+            }
           } else {
             sNameIclass = sRef;
           }
@@ -493,30 +514,50 @@ public final class VhdlExprTerm extends SrcInfo {
         this.b.append(" ) ");
         this.exprType_.set(termSimpleValue.exprType_);
       }
-      else if(var !=null) {
+      else if(var !=null) {                                // --- variable --------------------------------------------------
         J2Vhdl_Variable varDescr;
         String varName = var.get_variableName();
-        boolean bTimeMaskVar = sNameIclass !=null && sNameIclass.endsWith("time") || varName.startsWith("time") || varName.startsWith("_time") || varName.startsWith("m_");
-        if(bTimeMaskVar) {
-          varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
-          if(varDescr !=null) {
-            Debugutil.stop();  //Detection of time variables ....
+        if(varName.equals("fast"))
+          Debugutil.stop();
+
+        if(this.precedSegm.sJava.equals("==")) {           // If a equate operator is given, and the expression is a State contant:
+          final String sNameBit;
+          if(bRefToType) {                                 
+            sNameBit = sNameIclass + "_" + varName;        // to another Type
+          } else {
+            String mdlType = mdlRef.type.nameType;         // The own type
+            sNameBit = mdlType + "_" + sNameIclass + "_" + varName;
           }
-        } else {
-          varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
+          String snrBit = VhdlConv.d.fdata.idxEnumBitDef.get(sNameBit);
+          if(snrBit !=null) {
+            Debugutil.stop();
+            this.b.append(snrBit);
+            this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stateBit;
+          }
         }
-        if(varDescr !=null) {
-          if(varDescr.sElemJava.contains("ringMstLo_Pin"))
-            Debugutil.stop();
-          this.setVariable(varDescr);
-          this.exprType_.set(varDescr.type);
-          this.b.append(varDescr.sElemVhdl);
-          final boolean isBool = varDescr.type.etype == VhdlExprTerm.ExprTypeEnum.bittype;
-          if(isBool && genBool) { convBoolExpr(this.b, val); }     // appends = '0' or = '1'
-        } else {                                             // Variable not found:
-          bOk = false;
-          if(!bTimeMaskVar) {
-            Debugutil.stop();
+        if(this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.stateBit) {  // not a state bit in succession of the branch immediately above.
+          boolean bTimeMaskVar = sNameIclass !=null && sNameIclass.endsWith("time") || varName.startsWith("time") || varName.startsWith("_time") || varName.startsWith("m_");
+          if(bTimeMaskVar) {
+            varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
+            if(varDescr !=null) {
+              Debugutil.stop();  //Detection of time variables ....
+            }
+          } else {
+            varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
+          }
+          if(varDescr !=null) {
+            if(varDescr.sElemJava.contains("ringMstLo_Pin"))
+              Debugutil.stop();
+            this.setVariable(varDescr);
+            this.exprType_.set(varDescr.type);
+            this.b.append(varDescr.sElemVhdl);
+            final boolean isBool = varDescr.type.etype == VhdlExprTerm.ExprTypeEnum.bittype;
+            if(isBool && genBool) { convBoolExpr(this.b, val); }     // appends = '0' or = '1'
+          } else {                                             // Variable not found:
+            bOk = false;
+            if(!bTimeMaskVar) {
+              Debugutil.stop();
+            }
           }
         }
       }
@@ -698,7 +739,6 @@ public final class VhdlExprTerm extends SrcInfo {
       varDescr = VhdlConv.d.fdata.idxVars.get(sElemJava2);
     } else {
       Debugutil.stop();                  // a local PROCESS variable
-      
     }
     if(varDescr == null && sElemJava2.endsWith("._val_")) {// Pattern for a state value
       final String sElemJava3 = sElemJava2.substring(0, sElemJava2.length()-6);

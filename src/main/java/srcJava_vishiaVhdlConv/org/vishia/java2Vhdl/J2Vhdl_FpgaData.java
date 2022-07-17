@@ -31,6 +31,12 @@ public class J2Vhdl_FpgaData {
   TreeMap<String, J2Vhdl_Variable> idxProcessVars = new TreeMap<String, J2Vhdl_Variable>();
 
   
+  /**All enum definitions of the whole VHDL design.  */
+  TreeMap<String, String> idxEnumDef = new TreeMap<String, String>();
+
+  /**All bit values of enum values of the whole VHDL design.  */
+  TreeMap<String, String> idxEnumBitDef = new TreeMap<String, String>();
+
   /**All constant definitions of the whole VHDL design.  */
   TreeMap<String, J2Vhdl_ConstDef> idxConstDef = new TreeMap<String, J2Vhdl_ConstDef>();
 

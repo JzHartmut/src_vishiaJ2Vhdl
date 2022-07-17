@@ -952,7 +952,7 @@ public class Java2Vhdl {
   private void gatherAllVariablesOfSubClasses ( JavaSrc.ClassDefinition theclass, String nameModuleArg, boolean isToplevel) throws Exception {
       String nameTheClass = theclass.get_classident();
       final String nameModule = nameModuleArg !=null ? nameModuleArg: nameTheClass;  //for top level classes, not a module
-      gatherConstValues(theclass, nameTheClass + "_" + nameTheClass, nameModule);
+      gatherEnumConstValues(theclass, nameTheClass + "_" + nameTheClass, nameModule);
       JavaSrc.ClassContent theClassC = theclass.get_classContent();
       Iterable<JavaSrc.ClassDefinition> iclasses = theClassC.get_classDefinition(); 
       if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
@@ -975,22 +975,33 @@ public class Java2Vhdl {
    * @param nameModule
    * @throws Exception
    */
-  void gatherConstValues ( JavaSrc.ClassDefinition iclass, String nameType, String nameModule) throws Exception {
+  void gatherEnumConstValues ( JavaSrc.ClassDefinition iclass, String nameType, String nameModule) throws Exception {
     JavaSrc.ClassContent iClassC = iclass.get_classContent();
+    String nameClass = iclass.get_classident();
     if(iClassC.getSize_enumDefinition()>0) { 
       for( JavaSrc.EnumDefinition enumd: iClassC.get_enumDefinition()) {
         String identType = enumd.get_enumTypeIdent();
+        String nameEnumType = nameClass + "_" + identType;
+        this.fdata.idxEnumDef.put(nameEnumType, nameEnumType);
         for(JavaSrc.EnumElement enume: enumd.get_enumElement()) {
           String ident = enume.get_enumIdent();
           String nameVhdl = nameType + "_" + identType + "_" + ident;
           String javaPath = nameModule + "." + identType + "." + ident;
           JavaSrc.ActualArguments args = enume.get_actualArguments();
-          JavaSrc.Expression expr = null;
+          JavaSrc.Expression exprVal = null;
+          JavaSrc.Expression exprBitnr = null;
           if(args !=null) {
-            expr = args.get_Expression().iterator().next();  //use the first argument.
+            Iterator<JavaSrc.Expression> iterArgs = args.get_Expression().iterator();
+            exprVal = iterArgs.next();  //use the first argument.
+            if(iterArgs.hasNext()) {
+              exprBitnr = iterArgs.next();  //use the first argument.
+            }
           }
-          if(expr !=null) {
-            createConst(javaPath, nameVhdl, expr);
+          if(exprVal !=null) {
+            createConst(javaPath, nameVhdl, exprVal);
+          }
+          if(exprBitnr !=null) {
+            createStateBit(nameEnumType + "_" + ident, exprBitnr);
           }
         }
     } }
@@ -1039,6 +1050,18 @@ public class Java2Vhdl {
     return constDef;
   }
   
+  
+  
+  
+  void createStateBit ( String name, JavaSrc.Expression expr) throws Exception {
+    VhdlExprTerm valueterm = this.vhdlConv.genExprOnePart(expr, null, "");
+    String valueVhdl = valueterm.b.toString();             // one const value only, already converted to Vhdl format.
+//    VhdlExprTerm.ExprType type = valueterm.exprType_;
+    VhdlExprTerm.ExprTypeEnum etype = valueterm.exprType_.etype;
+    if(etype == VhdlExprTerm.ExprTypeEnum.numConst && valueVhdl.charAt(0)!='-') {
+      this.fdata.idxEnumBitDef.put(name, valueVhdl);
+    }
+  }
   
   
   /**Generate all head information in the VHDL file.
@@ -1337,6 +1360,18 @@ public class Java2Vhdl {
       sf.reset();
       String vhdlType = cvar.var.getVhdlType();
       sf.add("  ").add(nameVar).pos(35,1).add("| ").add(cvar.var.sElemVhdl).pos(75,1).add(" | ").add(vhdlType).add(" := ").add(cvar.value);
+      sf.flushLine("\n");
+    }
+    out.append("----------------------------------------+----------------\n\n");
+    //
+    out.append("\n== enumConstants:    {@link J2Vhdl_ModuleType#idxEnumBitDef}");
+    out.append("\n  search-name                           | VHDL access : value ");
+    out.append("\n-----------------------------------+----------------------------------------+----------------\n");
+    for( Map.Entry<String, String> eVar: this.fdata.idxEnumBitDef.entrySet()) {
+      String nameVar = eVar.getKey();
+      String cvar = eVar.getValue();
+      sf.reset();
+      sf.add("  ").add(nameVar).pos(35,1).add("| ").add(cvar);
       sf.flushLine("\n");
     }
     out.append("-----------------------------------+----------------------------------------+----------------\n\n");

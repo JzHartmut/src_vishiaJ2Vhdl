@@ -343,7 +343,7 @@ public class VhdlConv {
       if(this.dbgStop) { 
         int[] lineColumn = new int[2];
         String file = exprRpn.getSrcInfo(lineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
-        if(file.contains("SpiData") && lineColumn[0] >= 391 && lineColumn[0] <= 391) {
+        if(file.contains("FpgaTop_SpeA.java") && lineColumn[0] >= 192 && lineColumn[0] <= 195) {
           Debugutil.stop();
           bStopExprPart = true;
       } }
@@ -600,7 +600,7 @@ public class VhdlConv {
         }
       }
       if(exprRight ==null) {
-        exprRight = VhdlExprTerm.genExprPartValue(part.get_value(), false, mdl, nameInnerClassVariable);
+        exprRight = VhdlExprTerm.genExprPartValue(part.get_value(), oper, false, mdl, nameInnerClassVariable);
         //if(varAssign !=null && varAssign == exprLeft.variable() && nrAllOperands ==2)
         if(exprRight.variable() == exprLeft.variable()) {  // assign of same variable as first check
           if(StringFunctions.equals(exprLeft.b, exprRight.b)) { // then check expressions equal, then not necessary in VHDL
@@ -634,11 +634,6 @@ public class VhdlConv {
         assignTerm.append(" ").append(sOpVhdl);
         genTrueFalse(out, exprRight.b, partTrueFalse, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
         if(out != exprLeft.b) { appendLineColumn(out, exprLeft); }
-      }
-      else if(exprRight.precedSegm == J2Vhdl_Operator.operatorMap.get("=")) {// it is an assignement, via setBits(....)
-        assert(false);
-        out.append(exprRight.b).append(";");
-        appendLineColumn(out, exprLeft);
       }
       else if(typeVar.etype == VhdlExprTerm.ExprTypeEnum.stdVtype && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype) {
         out.append(exprLeft.b).append(sOpVhdl).append("TO_STDLOGICVECTOR(").append(exprRight.b).append(");");
@@ -693,7 +688,7 @@ public class VhdlConv {
     assert(expr.getSize_ExprPart()==1);
     VhdlExprTerm dstTerm = null;
     for(JavaSrc.ExprPart part : expr.get_ExprPart()) {
-      dstTerm = VhdlExprTerm.genExprPartValue(part.get_value(), false, mdl, nameInnerClassVariable);
+      dstTerm = VhdlExprTerm.genExprPartValue(part.get_value(), J2Vhdl_Operator.operatorMap.get("@"),  false, mdl, nameInnerClassVariable);
     }
     return dstTerm;
   }
@@ -1127,6 +1122,8 @@ public class VhdlConv {
       , String sRecVhdl, String sObjJava, String namefulliClass
       , Map<String, J2Vhdl_Variable> dstIx, Map<String, J2Vhdl_Variable> dstTypeIx) {
     String name = varzp.get_variableName();
+    if(name.equals("state"))
+      Debugutil.stop();
     if( ! name.equals("_time_") && ! name.startsWith("m_") && !name.startsWith("time_") && ! name.equals("time")) {
       JavaSrc.Type typezp = varzp.get_type();
       String sNrBits = null;
