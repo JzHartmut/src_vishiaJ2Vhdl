@@ -343,7 +343,7 @@ public class VhdlConv {
       if(this.dbgStop) { 
         int[] lineColumn = new int[2];
         String file = exprRpn.getSrcInfo(lineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
-        if(file.contains("SpiMaster") && lineColumn[0] >= 286 && lineColumn[0] <= 288) {
+        if(file.contains("SpiData") && lineColumn[0] >= 391 && lineColumn[0] <= 391) {
           Debugutil.stop();
           bStopExprPart = true;
       } }
@@ -464,7 +464,7 @@ public class VhdlConv {
       }
       exprLeft.nrOperands = nrAllOperands;                 // documents whether parenthesis may be necessary in a greater association.
     } catch(Throwable exc) {
-      vhdlError(exc.getMessage(), exprRpn);
+      vhdlError("Exception: " + exc.getMessage(), exprRpn);
     }
     return exprLeft;      //on assign the assigned variable remains in the exprLeft. 
   }
@@ -693,7 +693,7 @@ public class VhdlConv {
     assert(expr.getSize_ExprPart()==1);
     VhdlExprTerm dstTerm = null;
     for(JavaSrc.ExprPart part : expr.get_ExprPart()) {
-      dstTerm = VhdlExprTerm. genExprPartValue(part.get_value(), false, mdl, nameInnerClassVariable);
+      dstTerm = VhdlExprTerm.genExprPartValue(part.get_value(), false, mdl, nameInnerClassVariable);
     }
     return dstTerm;
   }

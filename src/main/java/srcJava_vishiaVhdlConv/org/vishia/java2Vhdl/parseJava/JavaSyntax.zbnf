@@ -182,7 +182,7 @@ interfaceDefinition::=
      | @SuppressWarnings([<""?>| \{ { <""?> ?, } \}])
 ##     | <ModifierClass?-?>   ##modifierclass here faulty, maybe on interfaceDefinition for an inner interface...
     }] 
-    [ enum <enumDefinition?+?>
+    [ <enumDefinition?+?>
     | <variableDefinition?+?> ;
     | <methodDefinition?+?>
     | <interfaceDefinition?+?>
@@ -220,7 +220,7 @@ classContent::=
  ##    | <ModifierClass?-?>
   ##  }] 
   [ //ZBNFoff <*|//end-ZBNFoff?>
-  | enum <enumDefinition?+?>
+  | <enumDefinition?+?>
   | <classDefinition?+?>
   | <interfaceDefinition?+?>
   | <variableDefinition?+?> ;
@@ -313,7 +313,7 @@ importpath::={<$?packagePath>\.}[<$?class>|*<?allClasses>].
 
 AccessRight::=<?>[[<?AccessRight>public|private|protected]].
 
-enumDefinition::= <$?enumTypeIdent> \{  [{<?*enumElement> <$?enumIdent> [ ( <actualArguments> ) ] ? , }]
+enumDefinition::= [|<AccessRight>] enum <$?enumTypeIdent> \{  [{<?*enumElement> <$?enumIdent> [ ( <actualArguments> ) ] ? , }]
 [ ; 
  [ <classContent> ]
 ]
