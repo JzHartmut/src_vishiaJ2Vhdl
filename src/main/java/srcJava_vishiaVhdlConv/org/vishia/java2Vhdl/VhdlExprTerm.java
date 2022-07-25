@@ -16,6 +16,9 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-25 in {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
+   *   if 'bTimeMaskVar' then do not search the (non existing) variable, prevent error message, tested on SPE-FPGA.
+   *   The statements are commented yet, they were introduced only for tests. 
    * <li>2022-07-17 in  {@link #addOperand(VhdlExprTerm, J2Vhdl_Operator, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, boolean, J2Vhdl_ModuleInstance, String)}:
    *   Detection whether the rightExpr supplies a {@link VhdlExprTerm.ExprTypeEnum#stateBit} with a == operator. 
    *   Then it produces a simple access to the proper state variable bit. Usefull for 1 to n decoded states.
@@ -66,7 +69,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2022-07-17"; 
+  public final static String sVersion = "2022-07-25"; 
 
   
   /**Type of a variable and a build expression.
@@ -538,10 +541,11 @@ public final class VhdlExprTerm extends SrcInfo {
         if(this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.stateBit) {  // not a state bit in succession of the branch immediately above.
           boolean bTimeMaskVar = sNameIclass !=null && sNameIclass.endsWith("time") || varName.startsWith("time") || varName.startsWith("_time") || varName.startsWith("m_");
           if(bTimeMaskVar) {
-            varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
-            if(varDescr !=null) {
-              Debugutil.stop();  //Detection of time variables ....
-            }
+            varDescr = null;   //not necessary
+//            varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
+//            if(varDescr !=null) {
+//              Debugutil.stop();  //Detection of time variables ....
+//            }
           } else {
             varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
           }

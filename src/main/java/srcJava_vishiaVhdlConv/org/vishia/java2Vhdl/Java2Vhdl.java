@@ -37,7 +37,10 @@ import org.vishia.util.StringFormatter;
 public class Java2Vhdl {
 
   /**Version, history and license.
-   * <ul>2022-06-11 Hartmut Big bug with small cause found: 
+   * <ul>
+   * <li>2022-07-25 in {@link #prepareIfcOperationsInModuleType(J2Vhdl_ModuleType, J2Vhdl_ModuleType, String, org.vishia.java2Vhdl.parseJava.JavaSrc.ClassContent)}:
+   *   now Annotation (at)Fpga.OnlySim regarded for operations which are only for simulation.  They does not create VHDL code.  
+   * <li>2022-06-11 Hartmut Big bug with small cause found: 
    *   For the CONSTANT names, the identifier for the access variable,
    *   for exampl <code>((AT)Fpga.IfcAccess Bit_ifc <b>stubFalse</b></code>  was not used in the name.
    *   Hence the CONSTANT definitions were not distinguished, the first has wined and the VHDL function was very faulty.
@@ -58,7 +61,7 @@ public class Java2Vhdl {
    * <li>descr: Change of description of elements.
    * </ul> 
    */
-  public static final String sVersion = "2022-06-11";
+  public static final String sVersion = "2022-07-25";
 
   
   
@@ -840,59 +843,34 @@ public class Java2Vhdl {
             Debugutil.stop();
         }
         //String sAnnotation = modif == null ? null :modif.get_Annotation();       // only search for interface implementig operations
+        boolean bOnlySim = false;
         if( a_Override !=null /*&& sAnnotation.startsWith("@Override") */  
             && !name.equals("step")                          // but not from the FpgaModule_ifc
             && !name.equals("update") 
           || sAnnot !=null 
-            && sAnnot.equals("Fpga.GetterVhdl")
-          ) {          
-          for(JavaSrc.Statement stmnt: oper.get_methodbody().get_statement()) {
-            if(stmnt.get_returnStmnt() !=null) {             // return expr found
-              J2Vhdl_ConstDef constDef = null;
-              JavaSrc.Expression expr = stmnt.get_Expression(); 
-              if(expr.getSize_ExprPart() ==1) {
-                JavaSrc.ExprPart exprPart = expr.get_ExprPart().iterator().next(); //first part
-                JavaSrc.SimpleValue val = exprPart.get_value();
-                if(val !=null) {
-                  JavaSrc.ConstNumber constVal = val.get_constNumber();
-                  if(constVal !=null) {                      // a constant returned from interface
-                    String nameVhdl = moduleType.nameType  + (sAccess == null ? "" : "_" + sAccess) + "_" + name;
-                    constDef = createConst(nameVhdl, nameVhdl, expr);
-                    expr = null;  //no more necessary.
-              } } }
-              String sIfcOpName = (sAccess == null ? "" : sAccess + ".") + name;
-              mdlTypeIdx.idxIfcExpr.put(sIfcOpName, new J2Vhdl_ModuleType.IfcConstExpr(expr, constDef));
-  
-              
-  //            
-  //            JavaSrc.ExprPart exprPart = expr.get_ExprPart().iterator().next(); //first part
-  //            JavaSrc.SimpleValue val = exprPart.get_value();
-  //            JavaSrc.Reference ref = val.get_reference();   // return processInstance. normally variable inside a process class
-  //            while(ref !=null) {
-  //              JavaSrc.SimpleVariable refVar = ref.get_referenceAssociation();
-  //              String sRefVar = refVar == null? null : refVar.get_variableName();  // other than a variable in the reference is not expected.
-  //              if(sRefVar !=null && !sRefVar.equals("this") && !sRefVar.equals("ref")) {
-  //                sbAccess.append(".").append(sRefVar);      // this.ref. is ignroed
-  //              }
-  //              ref = ref.get_reference();                   // next member in reference
-  //            }
-  //            JavaSrc.SimpleVariable var = val.get_simpleVariable();
-  //            if(var !=null) {                               // access to variable in a process data class, usual case
-  //              sbAccess.append('.').append(var.get_variableName());
-  //            } else {
-  //              JavaSrc.SimpleMethodCall ifcOper = val.get_simpleMethodCall();
-  //              if(ifcOper !=null) {                         // this is an access to another interface, resolve later.
-  //                sbAccess.append('.').append(ifcOper.get_methodName()).append("()");
-  //              } else {
-  //                JavaSrc.ConstNumber constVal = val.get_constNumber();
-  //                if(constVal !=null) {                      // a constant returned from interface
-  //                  String nameVhdl = moduleType.nameType + "_" + name;
-  //                  //String javaPath = name + "()";
-  //                  createConst(nameVhdl, nameVhdl, expr);
-  //                  sbAccess.append("#").append(nameVhdl);
-  //              } }
-  //            }
-  //            moduleType.idxIfcOperation.put(name, sbAccess.toString());
+            && ( sAnnot.equals("Fpga.GetterVhdl")
+              || (bOnlySim = sAnnot.equals("Fpga.OnlySim"))
+          )    ) {
+          String sIfcOpName = (sAccess == null ? "" : sAccess + ".") + name;
+          if(bOnlySim) {
+            mdlTypeIdx.idxIfcExpr.put(sIfcOpName, new J2Vhdl_ModuleType.IfcConstExpr(null, null));   //empty
+          } else {
+            for(JavaSrc.Statement stmnt: oper.get_methodbody().get_statement()) {
+              if(stmnt.get_returnStmnt() !=null) {             // return expr found
+                J2Vhdl_ConstDef constDef = null;
+                JavaSrc.Expression expr = stmnt.get_Expression(); 
+                if(expr.getSize_ExprPart() ==1) {
+                  JavaSrc.ExprPart exprPart = expr.get_ExprPart().iterator().next(); //first part
+                  JavaSrc.SimpleValue val = exprPart.get_value();
+                  if(val !=null) {
+                    JavaSrc.ConstNumber constVal = val.get_constNumber();
+                    if(constVal !=null) {                      // a constant returned from interface
+                      String nameVhdl = moduleType.nameType  + (sAccess == null ? "" : "_" + sAccess) + "_" + name;
+                      constDef = createConst(nameVhdl, nameVhdl, expr);
+                      expr = null;  //no more necessary.
+                } } }
+                mdlTypeIdx.idxIfcExpr.put(sIfcOpName, new J2Vhdl_ModuleType.IfcConstExpr(expr, constDef));
+              }
             }
           }
         }
@@ -1285,7 +1263,7 @@ public class Java2Vhdl {
   void reportContentOfAll(Appendable out) throws IOException {
     StringFormatter sf = new StringFormatter(out, false, "\n", 100);
     out.append("\n== J2Vhdl_ModuleType: {@link J2Vhdl_FpgaData#idxModuleTypes}\n");
-    out.append(" ModuleType         |  ifcOperation()                       | access    {@link J2Vhdl_ModuleType#idxIfcOperation} \n");
+    out.append(" ModuleType         |  ifcOperation()                       | access    {@link J2Vhdl_ModuleType#idxIfcExpr} \n");
     out.append("--------------------+---------------------------------------+------------------------------------------------\n");
     for(Map.Entry<String, J2Vhdl_ModuleType> emdl: this.fdata.idxModuleTypes.entrySet()) {
       J2Vhdl_ModuleType mdl = emdl.getValue();
@@ -1300,7 +1278,8 @@ public class Java2Vhdl {
           String sAccess;
           //VhdlExprTerm.ExprType type;
           if(ifcAccess.constVal !=null) { sAccess = ifcAccess.constVal.var.sElemVhdl; }
-          else { sAccess = ifcAccess.expr.toString(); }
+          else if(ifcAccess.expr !=null) { sAccess = ifcAccess.expr.toString(); }
+          else { sAccess = "... only sim"; }
           sf.add(sNameModuleType).pos(20).add("| ").add(ifcName).add("()").pos(60).add("| ").add(sAccess);
           sf.flushLine("\n");
           sNameModuleType = "";  //next lines, empty
