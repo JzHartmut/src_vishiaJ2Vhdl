@@ -915,6 +915,7 @@ public class VhdlConv {
   GenOperation getBitsShR = new GenOperation() {
     @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       final JavaSrc.Expression exprLeftBit = iArgs.next();
+      exprDst.b.append("(");
       genExpression(exprDst.b, exprLeftBit, false, false, mdl, nameInnerClassVariable, null, null);
       final JavaSrc.Expression exprLeftBitPos = iArgs.next();
       int leftBitPos = getIntFromExpr(exprLeftBitPos);
@@ -924,7 +925,7 @@ public class VhdlConv {
         vhdlError("variable not found: " + exprSrc.toString(), exprSrc);
       }
       assert(descrVar !=null);                             // ( 15 DOWNTO 1) if leftBitPos = 15 to shift 16 bits
-      exprDst.b.append(" & ").append(descrVar.sElemVhdl);
+      exprDst.b.append(") & ").append(descrVar.sElemVhdl);
       exprDst.b.append("(").append(Integer.toString(leftBitPos)).append(" DOWNTO 1)");
       exprDst.exprType_.set(descrVar.type);                   //The type comes from the variable which is accessed for shift bits.
       return descrVar;
@@ -980,9 +981,10 @@ public class VhdlConv {
       exprDst.b.append(descrVar.sElemVhdl);
       final JavaSrc.Expression exprNrBitsShift = iArgs.next();
       int nrBitsShift = getIntFromExpr(exprNrBitsShift);
-      exprDst.b.append("(").append(Integer.toString(nrBitsShift-1)).append(" DOWNTO 0) & ");
+      exprDst.b.append("(").append(Integer.toString(nrBitsShift-1)).append(" DOWNTO 0) & (");
       final JavaSrc.Expression exprRightBit = iArgs.next();
       genExpression(exprDst.b, exprRightBit, false, false, mdl, nameInnerClassVariable, null, null);
+      exprDst.b.append(")");
       exprDst.exprType_.set(descrVar.type);                   //The type comes from the variable which is accessed for shift bits.
       return descrVar;
   } };  
