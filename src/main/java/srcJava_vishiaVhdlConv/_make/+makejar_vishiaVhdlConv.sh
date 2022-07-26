@@ -6,7 +6,7 @@ echo " ... generates the $DSTNAME.jar from srcJava_$DSTNAME core sources"
 #Do not change the version on repeated build, and check the checksum and content of jar.
 #If it is equal, it is a reproduces build. The $VERSIONSTAMP is important 
 #  because it determines the timestamp and hence the checksum in the jar file. 
-export VERSIONSTAMP="2022-05-31"
+export VERSIONSTAMP="2022-07-26"
 ## Determine a dedicated vishiaBase-yyyy-mm-dd.jar or deactivate it to use the current vishiaBase.jar:
 export VERSION_VISHIABASE="XX2021-07-01"
 
@@ -62,8 +62,8 @@ export JAR_zipjar=$JAR_vishiaBase
 #determine the sources:
 # Note: include sources of vishiaRun are part of the source.zip
 export SRC_ALL=".."
-export SRC_ALL2=""
-export SRCPATH=".."
+export SRC_ALL2="../../vishiaFpga"
+export SRCPATH="..;../../vishiaFpga"
 
 # Resourcefiles for files in the jar
 export RESOURCEFILES="..:**/*.zbnf ..:**/*.xml ..:**/*.png ..:**/*.txt"

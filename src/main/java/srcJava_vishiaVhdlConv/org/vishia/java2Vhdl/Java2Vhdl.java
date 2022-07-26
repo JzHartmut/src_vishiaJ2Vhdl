@@ -519,7 +519,7 @@ public class Java2Vhdl {
   
   
   /**Evaluates a parsed module (java file) to detect sub module defintions<ul>
-   * <li>detect composite sub modules in the class Modules (instantiated as ref odr m)
+   * <li>detect composite sub modules in the class Modules (instantiated as ref or m)
    * <li>detect input / output records
    * <li>detect composite sub modules as implementation class of an interface
    * </ul>
