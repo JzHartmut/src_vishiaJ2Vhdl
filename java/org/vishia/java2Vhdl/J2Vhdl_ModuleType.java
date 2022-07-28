@@ -1,5 +1,7 @@
 package org.vishia.java2Vhdl;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -14,6 +16,37 @@ import org.vishia.java2Vhdl.parseJava.JavaSrc.Expression;
  */
 public class J2Vhdl_ModuleType {
   
+  /**Version, history and license.
+   * <ul>
+   * <li>2022-07-28 Hartmut enhanced for called included VHDL modules with {@link #inputs}, {@link #outputs} and {@link #idxIOVars}
+   * <li>2022-04 created
+   * </ul>
+   * <br><br>
+   * <b>Copyright/Copyleft</b>:
+   * For this source the LGPL Lesser General Public License,
+   * published by the Free Software Foundation is valid.
+   * It means:
+   * <ol>
+   * <li> You can use this source without any restriction for any desired purpose.
+   * <li> You can redistribute copies of this source to everybody.
+   * <li> Every user of this source, also the user of redistribute copies
+   *    with or without payment, must accept this license for further using.
+   * <li> But the LPGL is not appropriate for a whole software product,
+   *    if this source is only a part of them. It means, the user
+   *    must publish this part of source,
+   *    but don't need to publish the whole source of the own product.
+   * <li> You can study and modify (improve) this source
+   *    for own using or for redistribution, but you have to license the
+   *    modified sources likewise under this LGPL Lesser General Public License.
+   *    You mustn't delete this Copyright/Copyleft inscription in this source file.
+   * </ol>
+   * If you are intent to use this sources without publishing its usage, you can get
+   * a second license subscribing a special contract with the author. 
+   * 
+   * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
+   */
+  public final static String sVersion = "2022-07-28"; 
+
   
   static class IfcConstExpr {
     final JavaSrc.Expression expr;
@@ -46,6 +79,9 @@ public class J2Vhdl_ModuleType {
   
   final JavaSrc.ClassDefinition moduleClass;
   
+  /**True then it is an external VHDL module. */
+  final boolean isOwnVhdlModule;
+  
   /**Instance of a top level module. Only for a top level ModuleType an instance is built immediately.
    * All other Module types are only existent because there is a composite reference which builds the instance,
    * and this can be more as one instances for the same type, or also the same type used in different module types as sub module.
@@ -54,6 +90,21 @@ public class J2Vhdl_ModuleType {
   J2Vhdl_ModuleInstance topInstance;
   //boolean isTopLevel;
 
+  
+  /**If the type contains an <code>Input</code> inner class, its variables. */
+  List<J2Vhdl_Variable> inputs = null;
+  
+  /**If the type contains an <code>Output</code> inner class, its variables. */
+  List<J2Vhdl_Variable> outputs = null;
+  
+  /**If the type contains an <code>Input</code> or <code>Output</code> inner class, its variables. */
+  Map<String, J2Vhdl_Variable> idxIOVars = null;
+
+
+  
+  
+  
+  
   /**Association between the name of any interface operation in this module
    * to the appropriate RECORD variable in VHDL. 
    * The value comes from the <code> return q.var;</code> in the interface operation.
@@ -69,8 +120,9 @@ public class J2Vhdl_ModuleType {
   Map<String, J2Vhdl_ModuleInstance> XXXidxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>();
 
 
-  public J2Vhdl_ModuleType(String nameType, JavaSrc javaSrc, JavaSrc.ClassDefinition moduleClass, boolean isTopLevel) {
+  public J2Vhdl_ModuleType(String nameType, JavaSrc javaSrc, JavaSrc.ClassDefinition moduleClass, boolean isTopLevel, boolean isOwnVhdlModule) {
     this.nameType = nameType;
+    this.isOwnVhdlModule = isOwnVhdlModule;
     //this.javaSrc = javaSrc;
     this.moduleClass = moduleClass;
     if(isTopLevel) {
@@ -81,6 +133,19 @@ public class J2Vhdl_ModuleType {
   }
   
   boolean isTopLevel() { return this.topInstance !=null; }
+  
+  
+  List<J2Vhdl_Variable> createInputs ( ) { 
+    if(this.idxIOVars == null) { this.idxIOVars = new TreeMap<String, J2Vhdl_Variable>(); }
+    assert(this.inputs == null);
+    return this.inputs = new LinkedList<J2Vhdl_Variable>(); 
+  } 
+  
+  List<J2Vhdl_Variable> createOutputs ( ) { 
+    if(this.idxIOVars == null) { this.idxIOVars = new TreeMap<String, J2Vhdl_Variable>(); }
+    assert(this.outputs == null);
+    return this.outputs = new LinkedList<J2Vhdl_Variable>(); 
+  } 
   
   @Override public String toString() { return this.nameType;  }
   

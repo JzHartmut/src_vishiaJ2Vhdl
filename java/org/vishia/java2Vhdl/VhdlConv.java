@@ -1120,7 +1120,7 @@ public class VhdlConv {
 
 
   
-  private static J2Vhdl_Variable createVariable ( JavaSrc.VariableInstance varzp
+  static J2Vhdl_Variable createVariable ( JavaSrc.VariableInstance varzp
       , String sRecVhdl, String sObjJava, String namefulliClass
       , Map<String, J2Vhdl_Variable> dstIx, Map<String, J2Vhdl_Variable> dstTypeIx) {
     String name = varzp.get_variableName();
@@ -1171,9 +1171,9 @@ public class VhdlConv {
           vhdlError("Variable type not supported in J2VHDL: " + sTypeJava, varzp);
         }
       }
-      final String sElemVhdl = sRecVhdl.equals("Trenz_SpeA_InputPins.") ? name :  sRecVhdl + name;
+      final String sElemVhdl = sRecVhdl==null ? name :  sRecVhdl + name;
       final String sElemJava = sObjJava +name;
-      if(sObjJava.length() ==0) { sObjJava = name; }
+      final String sVarName = sObjJava.length() >0 ? sObjJava : name;
       final int nrBits = sNrBits == null? 0 : Integer.parseInt(sNrBits);
       final boolean bLocal;
       final String nameInClass;
@@ -1184,7 +1184,7 @@ public class VhdlConv {
         nameInClass = namefulliClass + "." + name;
         bLocal = false;
       }
-      final J2Vhdl_Variable var = new J2Vhdl_Variable(sObjJava, bLocal, eType, nrBits, sElemJava, sElemVhdl);
+      final J2Vhdl_Variable var = new J2Vhdl_Variable(sVarName, bLocal, eType, nrBits, sElemJava, sElemVhdl);
       dstIx.put(sElemJava, var);                  // access to var from a process
       if(dstTypeIx !=null) {
         dstTypeIx.put(nameInClass, var);            // access to var for Record definition

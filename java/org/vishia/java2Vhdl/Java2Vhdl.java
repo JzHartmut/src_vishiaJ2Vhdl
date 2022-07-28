@@ -38,6 +38,8 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-28 {@link #evaluateModuleTypes()} renamed from evaluateModules, now checks annotation <code>(at)FpgaVHDL_MODULE</code>,
+   *   then parses Input, Output inner classes in {@link #evaluateVhdlMdlTypes(J2Vhdl_ModuleType)}.
    * <li>2022-07-25 in {@link #prepareIfcOperationsInModuleType(J2Vhdl_ModuleType, J2Vhdl_ModuleType, String, org.vishia.java2Vhdl.parseJava.JavaSrc.ClassContent)}:
    *   now Annotation (at)Fpga.OnlySim regarded for operations which are only for simulation.  They does not create VHDL code.  
    * <li>2022-06-11 Hartmut Big bug with small cause found: 
@@ -61,7 +63,7 @@ public class Java2Vhdl {
    * <li>descr: Change of description of elements.
    * </ul> 
    */
-  public static final String sVersion = "2022-07-25";
+  public static final String sVersion = "2022-07-28";
 
   
   
@@ -304,7 +306,7 @@ public class Java2Vhdl {
     this.vhdlAfterPort = new OutTextPreparer("vhdlAfterPort", null, "fpgaName", tplTexts.get("vhdlAfterPort"));
     this.vhdlConst = new OutTextPreparer("vhdlConst", null, "name, type, value", tplTexts.get("vhdlConst"));
     parseAll();                                                              // parse top level and depending classes. 
-    evaluateModules();
+    evaluateModuleTypes();
     gatherAllVariables();
     evaluateInterfacesInModules();
     
@@ -403,62 +405,84 @@ public class Java2Vhdl {
 
 
 
-  /**Parse primary all argument files and secondly all depending files in inner classes "Ref".
+  /**Parse primary all argument files and secondly all depending files in inner classes "Modules".
    * The first primary file (named firstly in argument list) is the toplevel. 
-   * Note: more as one time referenced files are parsed only one time, using and checking the {@link #idxParseResult},
-   * {@link #parseSrc(File, String, String, int)} is called recursively.  
+   * <pre>
+   * public class Modules {
+   *   public final SubModule nameInstance = new SubModule(references, for_aggregations));
+   * </pre>  
+   * <ul>
+   * <li>For each detected sub module type in this Modules an entry in {@link J2Vhdl_FpgaData#idxModuleTypes} is created and saved.
+   * <li>An always parsed class is not parsed twice, it is possible to have more module instances of the same type.
+   * <li>For each detected sub module instances in this Modules an entry in {@link J2Vhdl_FpgaData#idxModules} is created and saved.
+   * <li><code>As key: String nameInstance</code>: name of the sub module in Java, 
+   *   it builds the first part for the name of the RECORD instance for this module in VHDL.
+   *   The second part comes from the inner class instance for a PROCESS.
+   *   <br>For example the RECORD instance name is <code>nameInstance_q</code>
+   * <li>As entry: {@link J2Vhdl_ModuleInstance}. Its content is prepared in {@link #prepareModuleInstance(J2Vhdl_ModuleInstance, org.vishia.java2Vhdl.parseJava.JavaSrc.VariableInstance)}.
+   *   description see their.
+   * </ul> 
+   * This operation does not evaluate the content of the java class, it searches only for all sub modules in the <code>Modules</code> class.
+   * The evaluation of the content is then done with the following called {@link #evaluateModules()}.
+   * This approach assures that all modules are formally known in a first pass. 
+   * Its content may use the modules in another order, for that all modules should be known. That is the second pass of translation.  
+   * {@link #parseSrc(List, String)} is called internally.  
    * @throws Exception 
    */
   public void parseAll() 
   throws Exception 
   { 
     List<String> javaSrcToProcess = new LinkedList<String>();
-    javaSrcToProcess.addAll(this.args.fJavaVhdlSrc);
+    javaSrcToProcess.addAll(this.args.fJavaVhdlSrc);       // add all classes from argument
     int nToplevelFiles = javaSrcToProcess.size();
     //boolean bTopLevel = true;
     J2Vhdl_ModuleInstance topMdl = null;
-    while(javaSrcToProcess.size() >0) {
-      boolean bTopLevel = --nToplevelFiles >=0;            //the first added files are top level
+    while(javaSrcToProcess.size() >0) {                    // loop over all, also new added files.
+      boolean bTopLevel = --nToplevelFiles >=0;            // the first added files are top level
       String pathSrcJava = javaSrcToProcess.remove(0);
+      //======>>>
       JavaSrc parseResult = parseSrc(this.args.dirJavaVhdlSrc, pathSrcJava);
       if(parseResult !=null) {
         if(parseResult.getSize_classDefinition() >0) //...for
-        for(JavaSrc.ClassDefinition pclass: parseResult.get_classDefinition()) {
-          String className = pclass.get_classident();          // should contain only one public class.
-          J2Vhdl_ModuleType moduleType = new J2Vhdl_ModuleType(className, parseResult, pclass, bTopLevel);
-          this.fdata.idxModuleTypes.put(className, moduleType);      // Store in idxModuleTypes with the simple className
+        for(JavaSrc.ClassDefinition pclass: parseResult.get_classDefinition()) {  //typical one class, maybe more package private classes
+          String className = pclass.get_classident();      // should contain only one public class.
+          String sClassAnnot = pclass.get_Annotation();
+          boolean isVhdlMdl = sClassAnnot !=null && sClassAnnot.contains("Fpga.VHDL_MODULE");
+          J2Vhdl_ModuleType moduleType = new J2Vhdl_ModuleType(className, parseResult, pclass, bTopLevel, isVhdlMdl);
+          this.fdata.idxModuleTypes.put(className, moduleType); // Store in idxModuleTypes with the simple className
           if(topMdl ==null) { //bTopLevel) {                                      // build an module instance also from the top level file as Module
             topMdl = moduleType.topInstance;
             assert(topMdl !=null); // was created in ctor
             this.fdata.idxModules.put(className, topMdl);
           }
-          JavaSrc.ClassContent zClassC = pclass.get_classContent();
-          //
-          if(zClassC.getSize_classDefinition() >0) //...for // iterate over all inner classes to search a Modules class
-          for(JavaSrc.ClassDefinition iclass: zClassC.get_classDefinition()) {
-            //----------------------------------------------------------------------------------
-            String iClassName = iclass.get_classident();       // search a module class inside the given class.
-            if(iClassName.equals("Modules")) {                 // The Modules class contains all used sub modules.
-              JavaSrc.ClassContent ziClassC = iclass.get_classContent();
-              //
-              // -------------------------------------------   // All elements in class Modules:
-              for(JavaSrc.VariableInstance mVar: ziClassC.get_variableDefinition()) {
-                //--------------------------------------------------------------
-                //String nameSubModule = mVar.get_variableName();  //This builds the left part of instance name for all RECORD instances in VHDL
-                final JavaSrc.Type type = mVar.get_type();
-                final String sType = type.get_name();          // search the appropriate parsed source.java result
-                J2Vhdl_ModuleType typeSubModule = this.fdata.idxModuleTypes.get(sType);
-                //System.out.println("  Module: " + nameSubModule);
-                if(typeSubModule == null) {                // parse only not already parsed source.java.
-                  String pathSrcRef = parseResult.findTypeInImport(sType);
-                  if(pathSrcRef == null) {                   // suggest that the module is in the same package as the top level module:
-                    int posDirSrc = pathSrcJava.lastIndexOf('/') +1;
-                    pathSrcRef = pathSrcJava.substring(0, posDirSrc) + sType; 
-                  }
-                  javaSrcToProcess.add(pathSrcRef + ".java");
-                }                                             
-                
-        } } } } 
+          String sAnnot = pclass.get_Annotation();
+          if(sAnnot == null || !sAnnot.contains("Fpga.VHDL_MODULE")) {
+            JavaSrc.ClassContent zClassC = pclass.get_classContent();
+            //
+            if(zClassC.getSize_classDefinition() >0) //...for // iterate over all inner classes to search a Modules class
+            for(JavaSrc.ClassDefinition iclass: zClassC.get_classDefinition()) {
+              //----------------------------------------------------------------------------------
+              String iClassName = iclass.get_classident();       // search a module class inside the given class.
+              if(iClassName.equals("Modules")) {                 // The Modules class contains all used sub modules.
+                JavaSrc.ClassContent ziClassC = iclass.get_classContent();
+                //
+                // -------------------------------------------   // All elements in class Modules:
+                for(JavaSrc.VariableInstance mVar: ziClassC.get_variableDefinition()) {
+                  //--------------------------------------------------------------
+                  //String nameSubModule = mVar.get_variableName();  //This builds the left part of instance name for all RECORD instances in VHDL
+                  final JavaSrc.Type type = mVar.get_type();
+                  final String sType = type.get_name();          // search the appropriate parsed source.java result
+                  J2Vhdl_ModuleType typeSubModule = this.fdata.idxModuleTypes.get(sType);
+                  //System.out.println("  Module: " + nameSubModule);
+                  if(typeSubModule == null) {                // parse only not already parsed source.java.
+                    String pathSrcRef = parseResult.findTypeInImport(sType);
+                    if(pathSrcRef == null) {                   // suggest that the module is in the same package as the top level module:
+                      int posDirSrc = pathSrcJava.lastIndexOf('/') +1;
+                      pathSrcRef = pathSrcJava.substring(0, posDirSrc) + sType; 
+                    }
+                    javaSrcToProcess.add(pathSrcRef + ".java");
+                  }                                             
+        } } } } } 
       }
 //      bTopLevel = false;
     } //while(javaSrcToProcess.size() >0);
@@ -470,23 +494,7 @@ public class Java2Vhdl {
    * <ul> 
    * <li>It is either a top level class given as argument class for {@link Java2Vhdl#main(String[])}
    * <li>or it is a used sub module which is named in the <code>class Modules</code> inner class of this parsed class.
-   *   For that classes this operation is also called recursively inside.
    * </ul> 
-   * <pre>
-   * public class Modules {
-   *   public final SubModule nameInstance = new SubModule(references, for_aggregations));
-   * </pre>  
-   * For each detected sub modules in this module an entry in {@link #idxModules} is created and saved:
-   * <ul>
-   * <li><code>As key: String nameInstance</code>: name of the sub module in Java, 
-   *   it builds the first part for the name of the RECORD instance for this module in VHDL.
-   *   The second part comes from the inner class instance for a PROCESS.
-   *   <br>For example the RECORD instance name is <code>nameInstance_q</code>
-   * <li>As entry: {@link Module}. Its content is prepared in {@link #prepareModule(Module, org.vishia.parseJava.JavaSrc.VariableInstance)}.
-   * description see their.
-   * </ul> 
-   * Also the {@link #idxParseResult} is supplemented with this parsed source
-   * for more as one sub modules (VHDL RECORD SIGNAL instance) with the same type. <br>
    *  
    * This operation is called recusively for all the Submodules- tree of sources
    * @param dirSrc directory where the name.java file is found. 
@@ -528,7 +536,7 @@ public class Java2Vhdl {
    * but only later in {@link #prepareIfcOperationsInModuleType(J2Vhdl_ModuleType, org.vishia.parseJava.JavaSrc.ClassDefinition)}.
    * @throws Exception
    */
-  private void evaluateModules ( ) throws Exception {
+  private void evaluateModuleTypes ( ) throws Exception {
     //add new detected inner types after evaluate the container idxModuleTypes:
     List<J2Vhdl_ModuleType> newInnerTypes = new LinkedList<J2Vhdl_ModuleType>();
     for(Map.Entry<String, J2Vhdl_ModuleType> e : this.fdata.idxModuleTypes.entrySet()) {
@@ -537,65 +545,90 @@ public class Java2Vhdl {
       if(sClassName.equals("RxSpe")) {
         Debugutil.stop();
       }
-      JavaSrc.ClassContent mdlClassC = mdlt.moduleClass.get_classContent();
-      if(mdlClassC.getSize_classDefinition()>0) //...for
-      for(JavaSrc.ClassDefinition iclass: mdlClassC.get_classDefinition()) {
-        //----------------------------------------------------------------------------------
-        String iClassName = iclass.get_classident();       // search a module class inside the given class.
-        if(iClassName.equals("Modules")) {                 // The Modules class contains all used sub modules.
-          JavaSrc.ClassContent iClassC = iclass.get_classContent();
-          //
-          // -------------------------------------------   // All elements in class Modules:
-          for(JavaSrc.VariableInstance mVar: iClassC.get_variableDefinition()) { //are the composite existing modules
-            //--------------------------------------------------------------
-            String nameSubModule = mVar.get_variableName();  //This builds the left part of instance name for all RECORD instances in VHDL
-            final JavaSrc.Type type = mVar.get_type();
-            final String sType = type.get_name();          // search the appropriate parsed source.java result
-            System.out.println("  Module: " + nameSubModule + " : " + sType);
-            J2Vhdl_ModuleType typeSubModule = this.fdata.idxModuleTypes.get(sType);
-            if(typeSubModule !=null) {
-              J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubModule, typeSubModule, false); //typeSubModule, false);
-              prepareModuleInstance(subModule, mVar);
-              typeSubModule.XXXidxSubModules.put(nameSubModule, subModule);  // register the module instance in the type as used composite sub module
-              this.fdata.idxModules.put(nameSubModule, subModule); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
-              if(mdlt.topInstance !=null) {
-                mdlt.topInstance.idxAggregatedModules.put(nameSubModule, new J2Vhdl_ModuleInstance.InnerAccess(subModule, null));
+      if(mdlt.isOwnVhdlModule) {
+        evaluateVhdlMdlTypes(mdlt);
+      }
+      else {
+        JavaSrc.ClassContent mdlClassC = mdlt.moduleClass.get_classContent();
+        if(mdlClassC.getSize_classDefinition()>0) //...for
+        for(JavaSrc.ClassDefinition iclass: mdlClassC.get_classDefinition()) {
+          //----------------------------------------------------------------------------------
+          String iClassName = iclass.get_classident();       // search a module class inside the given class.
+          if(iClassName.equals("Modules")) {                 // The Modules class contains all used sub modules.
+            JavaSrc.ClassContent iClassC = iclass.get_classContent();
+            //
+            // -------------------------------------------   // All elements in class Modules:
+            for(JavaSrc.VariableInstance mVar: iClassC.get_variableDefinition()) { //are the composite existing modules
+              //--------------------------------------------------------------
+              String nameSubModule = mVar.get_variableName();  //This builds the left part of instance name for all RECORD instances in VHDL
+              final JavaSrc.Type type = mVar.get_type();
+              final String sType = type.get_name();          // search the appropriate parsed source.java result
+              System.out.println("  Module: " + nameSubModule + " : " + sType);
+              J2Vhdl_ModuleType typeSubModule = this.fdata.idxModuleTypes.get(sType);
+              if(typeSubModule !=null) {
+                J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubModule, typeSubModule, false); //typeSubModule, false);
+                prepareModuleInstance(subModule, mVar);
+                typeSubModule.XXXidxSubModules.put(nameSubModule, subModule);  // register the module instance in the type as used composite sub module
+                this.fdata.idxModules.put(nameSubModule, subModule); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
+                if(mdlt.topInstance !=null) {
+                  mdlt.topInstance.idxAggregatedModules.put(nameSubModule, new J2Vhdl_ModuleInstance.InnerAccess(subModule, null));
+                }
+              } else {
+                VhdlConv.vhdlError("evaluteModules() - J2Vhdl_ModuleType not found :" + sType + " in " + iClassName, mVar);
               }
-            } else {
-              VhdlConv.vhdlError("evaluteModules() - J2Vhdl_ModuleType not found :" + sType + " in " + iClassName, mVar);
+              
             }
+            evaluateModulesCtor(iClassC);                     // find init(ref, ref...) statement in ctor
+          }
+          else if( /*mdlt.isTopLevel() &&*/ ( iClassName.equals("Input")
+                 || iClassName.equals("Output") )) {          // In/Output signals of the whole FPGA or a VHDL sub module.
+            String sIclassName = Character.toLowerCase(iClassName.charAt(0)) + iClassName.substring(1); 
+            String name = sClassName + "." + sIclassName;
+            String nameType = sClassName + "_" + iClassName;  // J2Vhdl_ModuleType ToplevelType_Input
+            J2Vhdl_ModuleType inoutType = new J2Vhdl_ModuleType(nameType, null, iclass, false, false);
+            newInnerTypes.add(inoutType);    //instead: this.fdata.idxModuleTypes.put(name, inoutType); //concurrentmodificationException
+            prepareIfcOperationsInModuleType(inoutType, inoutType, null, iclass.get_classContent());
+            J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, inoutType, true);  // J2Vhdl_ModuleInstance ToplevelType_input
+            this.fdata.idxModules.put(name, inoutModule);
+            searchForIfcAccess(iclass.get_classContent(), inoutType);
+          }
+          else if(iClassName.equals("Ref")) {
             
           }
-          evaluateModulesCtor(iClassC);                     // find init(ref, ref...) statement in ctor
+          else {                                             // all other classes are Process classes, gather there variables
+  //          this.vhdlConv.mapVariables(nameModule, iclass);
+          }
         }
-        else if( /*mdlt.isTopLevel() &&*/ ( iClassName.equals("Input")
-               || iClassName.equals("Output") )) {          // In/Output signals of the whole FPGA or a VHDL sub module.
-          String sIclassName = Character.toLowerCase(iClassName.charAt(0)) + iClassName.substring(1); 
-          String name = sClassName + "." + sIclassName;
-          String nameType = sClassName + "_" + iClassName;  // J2Vhdl_ModuleType ToplevelType_Input
-          J2Vhdl_ModuleType inoutType = new J2Vhdl_ModuleType(nameType, null, iclass, false);
-          newInnerTypes.add(inoutType);
-          //this.fdata.idxModuleTypes.put(name, inoutType); //concurrentmodificationException
-          prepareIfcOperationsInModuleType(inoutType, inoutType, null, iclass.get_classContent());
-          J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, inoutType, true);  // J2Vhdl_ModuleInstance ToplevelType_input
-          this.fdata.idxModules.put(name, inoutModule);
-          searchForIfcAccess(iclass.get_classContent(), inoutType);
-        }
-        else if(iClassName.equals("Ref")) {
-          
-        }
-        else {                                             // all other classes are Process classes, gather there variables
-//          this.vhdlConv.mapVariables(nameModule, iclass);
-        }
+        searchForIfcAccess(mdlClassC, mdlt);
       }
-      searchForIfcAccess(mdlClassC, mdlt);
-      
     } //for this.fdata.idxModuleTypes
     for(J2Vhdl_ModuleType newInnerType : newInnerTypes) {  // an inner type does not need evaluated again.
       this.fdata.idxModuleTypes.put(newInnerType.nameType, newInnerType);
     }
   }
 
+  
+  
+  /**A module class with the (at) {@link Fpga.VHDL_MODULE}. Only the interfaces are evaluated. 
+   * 
+   */
+  private void evaluateVhdlMdlTypes ( J2Vhdl_ModuleType mdlt ) {
+    JavaSrc.ClassContent mdlClassC = mdlt.moduleClass.get_classContent();
+    if(mdlClassC.getSize_classDefinition()>0) //...for
+    for(JavaSrc.ClassDefinition iclass: mdlClassC.get_classDefinition()) {
+      //----------------------------------------------------------------------------------
+      String iClassName = iclass.get_classident();       // search a module class inside the given class.
+      if( /*mdlt.isTopLevel() &&*/ ( iClassName.equals("Input")
+          || iClassName.equals("Output") )) {          // In/Output signals of the whole FPGA or a VHDL sub module.
+        List<J2Vhdl_Variable> vars = iClassName.equals("Input") ? mdlt.createInputs() : mdlt.createOutputs();
+        JavaSrc.ClassContent iclassC = iclass.get_classContent();
+        for(JavaSrc.VariableInstance mVar: iclassC.get_variableDefinition()) { //are the composite existing modules
+          //--------------------------------------------------------------
+          J2Vhdl_Variable var = VhdlConv.createVariable(mVar, null, "", null, mdlt.idxIOVars, null);
+          vars.add(var);
+    } } }
+  }
+  
   
   
   
@@ -1267,25 +1300,45 @@ public class Java2Vhdl {
     out.append("--------------------+---------------------------------------+------------------------------------------------\n");
     for(Map.Entry<String, J2Vhdl_ModuleType> emdl: this.fdata.idxModuleTypes.entrySet()) {
       J2Vhdl_ModuleType mdl = emdl.getValue();
-      String sNameModuleType = emdl.getKey();
-      if(mdl.idxIfcExpr.size()==0) {
-        out.append(sNameModuleType).append("\n");
-      } else {
-        for(Map.Entry<String, J2Vhdl_ModuleType.IfcConstExpr> eIfc : mdl.idxIfcExpr.entrySet()) {
-          String ifcName = eIfc.getKey();
-          J2Vhdl_ModuleType.IfcConstExpr ifcAccess = eIfc.getValue();
-          sf.reset();
-          String sAccess;
-          //VhdlExprTerm.ExprType type;
-          if(ifcAccess.constVal !=null) { sAccess = ifcAccess.constVal.var.sElemVhdl; }
-          else if(ifcAccess.expr !=null) { sAccess = ifcAccess.expr.toString(); }
-          else { sAccess = "... only sim"; }
-          sf.add(sNameModuleType).pos(20).add("| ").add(ifcName).add("()").pos(60).add("| ").add(sAccess);
+      if(!mdl.isOwnVhdlModule) {
+        String sNameModuleType = emdl.getKey();
+        if(mdl.idxIfcExpr.size()==0) {
+          out.append(sNameModuleType).append("\n");
+        } else {
+          for(Map.Entry<String, J2Vhdl_ModuleType.IfcConstExpr> eIfc : mdl.idxIfcExpr.entrySet()) {
+            String ifcName = eIfc.getKey();
+            J2Vhdl_ModuleType.IfcConstExpr ifcAccess = eIfc.getValue();
+            sf.reset();
+            String sAccess;
+            //VhdlExprTerm.ExprType type;
+            if(ifcAccess.constVal !=null) { sAccess = ifcAccess.constVal.var.sElemVhdl; }
+            else if(ifcAccess.expr !=null) { sAccess = ifcAccess.expr.toString(); }
+            else { sAccess = "... only sim"; }
+            sf.add(sNameModuleType).pos(20).add("| ").add(ifcName).add("()").pos(60).add("| ").add(sAccess);
+            sf.flushLine("\n");
+            sNameModuleType = "";  //next lines, empty
+          }
+        }
+        out.append("--------------------+---------------------------------------+------------------------------------------------\n");
+      }
+    }
+    boolean bOwnVhdlModules = false;
+    for(Map.Entry<String, J2Vhdl_ModuleType> emdl: this.fdata.idxModuleTypes.entrySet()) {
+      J2Vhdl_ModuleType mdl = emdl.getValue();
+      if(mdl.isOwnVhdlModule) {
+        if(!bOwnVhdlModules) {
+          bOwnVhdlModules = true;
+          out.append(" ModuleType VHDL    |  io \n");
+          out.append("--------------------+---------------------------------------\n");
+        }
+        String sNameModuleType = emdl.getKey();
+        for(Map.Entry<String, J2Vhdl_Variable> eVar : mdl.idxIOVars.entrySet()) {
+          J2Vhdl_Variable var = eVar.getValue();
+          sf.add(sNameModuleType).pos(20).add("| ").add(var.sElemVhdl);
           sf.flushLine("\n");
           sNameModuleType = "";  //next lines, empty
         }
       }
-      out.append("--------------------+---------------------------------------+------------------------------------------------\n");
     }
 
     for(Map.Entry<String, J2Vhdl_ModuleInstance> emdl: this.fdata.idxModules.entrySet()) {
