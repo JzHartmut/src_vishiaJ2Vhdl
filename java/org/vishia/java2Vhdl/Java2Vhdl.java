@@ -38,6 +38,7 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-28 {@link #genUsedVhdl(Appendable)} now writes the COMPONENT PORT
    * <li>2022-07-28 {@link #evaluateModuleTypes()} renamed from evaluateModules, now checks annotation <code>(at)FpgaVHDL_MODULE</code>,
    *   then parses Input, Output inner classes in {@link #evaluateVhdlMdlTypes(J2Vhdl_ModuleType)}.
    * <li>2022-07-25 in {@link #prepareIfcOperationsInModuleType(J2Vhdl_ModuleType, J2Vhdl_ModuleType, String, org.vishia.java2Vhdl.parseJava.JavaSrc.ClassContent)}:
@@ -266,6 +267,8 @@ public class Java2Vhdl {
   
   
   OutTextPreparer vhdlHead, vhdlAfterPort, vhdlConst;
+  
+  OutTextPreparer vhdlCmpnDef;
 
   
   /**Creates all working instances.
@@ -305,6 +308,7 @@ public class Java2Vhdl {
     this.vhdlHead = new OutTextPreparer("vhdlHead", null, "fpgaName", tplTexts.get("vhdlHead"));
     this.vhdlAfterPort = new OutTextPreparer("vhdlAfterPort", null, "fpgaName", tplTexts.get("vhdlAfterPort"));
     this.vhdlConst = new OutTextPreparer("vhdlConst", null, "name, type, value", tplTexts.get("vhdlConst"));
+    this.vhdlCmpnDef = new OutTextPreparer("vhdlCmpnDef", null, "name, vars", tplTexts.get("vhdlCmpnDef"));
     parseAll();                                                              // parse top level and depending classes. 
     evaluateModuleTypes();
     gatherAllVariables();
@@ -339,7 +343,7 @@ public class Java2Vhdl {
       genHead(sbHead);
       wOut.append(sbHead);
     }
-    
+    genUsedVhdl(wOut);                                     //COMPONENT ... PORT .... call of external VHDL parts 
     genRecords(wOut);
     //
     
@@ -448,7 +452,12 @@ public class Java2Vhdl {
           String className = pclass.get_classident();      // should contain only one public class.
           String sClassAnnot = pclass.get_Annotation();
           boolean isVhdlMdl = sClassAnnot !=null && sClassAnnot.contains("Fpga.VHDL_MODULE");
-          J2Vhdl_ModuleType moduleType = new J2Vhdl_ModuleType(className, parseResult, pclass, bTopLevel, isVhdlMdl);
+          final J2Vhdl_ModuleType moduleType;
+          if(isVhdlMdl) {
+            moduleType= new J2Vhdl_ModuleVhdlType(className, parseResult, pclass, bTopLevel);
+          } else {
+            moduleType= new J2Vhdl_ModuleType(className, parseResult, pclass, bTopLevel);
+          }
           this.fdata.idxModuleTypes.put(className, moduleType); // Store in idxModuleTypes with the simple className
           if(topMdl ==null) { //bTopLevel) {                                      // build an module instance also from the top level file as Module
             topMdl = moduleType.topInstance;
@@ -545,8 +554,8 @@ public class Java2Vhdl {
       if(sClassName.equals("RxSpe")) {
         Debugutil.stop();
       }
-      if(mdlt.isOwnVhdlModule) {
-        evaluateVhdlMdlTypes(mdlt);
+      if(mdlt instanceof J2Vhdl_ModuleVhdlType) {
+        evaluateVhdlMdlTypes((J2Vhdl_ModuleVhdlType)mdlt);
       }
       else {
         JavaSrc.ClassContent mdlClassC = mdlt.moduleClass.get_classContent();
@@ -585,7 +594,7 @@ public class Java2Vhdl {
             String sIclassName = Character.toLowerCase(iClassName.charAt(0)) + iClassName.substring(1); 
             String name = sClassName + "." + sIclassName;
             String nameType = sClassName + "_" + iClassName;  // J2Vhdl_ModuleType ToplevelType_Input
-            J2Vhdl_ModuleType inoutType = new J2Vhdl_ModuleType(nameType, null, iclass, false, false);
+            J2Vhdl_ModuleType inoutType = new J2Vhdl_ModuleType(nameType, null, iclass, false);
             newInnerTypes.add(inoutType);    //instead: this.fdata.idxModuleTypes.put(name, inoutType); //concurrentmodificationException
             prepareIfcOperationsInModuleType(inoutType, inoutType, null, iclass.get_classContent());
             J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, inoutType, true);  // J2Vhdl_ModuleInstance ToplevelType_input
@@ -612,20 +621,29 @@ public class Java2Vhdl {
   /**A module class with the (at) {@link Fpga.VHDL_MODULE}. Only the interfaces are evaluated. 
    * 
    */
-  private void evaluateVhdlMdlTypes ( J2Vhdl_ModuleType mdlt ) {
+  private void evaluateVhdlMdlTypes ( J2Vhdl_ModuleVhdlType mdlt ) {
     JavaSrc.ClassContent mdlClassC = mdlt.moduleClass.get_classContent();
     if(mdlClassC.getSize_classDefinition()>0) //...for
     for(JavaSrc.ClassDefinition iclass: mdlClassC.get_classDefinition()) {
       //----------------------------------------------------------------------------------
       String iClassName = iclass.get_classident();       // search a module class inside the given class.
-      if( /*mdlt.isTopLevel() &&*/ ( iClassName.equals("Input")
+      boolean bInput;
+      if( /*mdlt.isTopLevel() &&*/ ( ( bInput = iClassName.equals("Input"))
           || iClassName.equals("Output") )) {          // In/Output signals of the whole FPGA or a VHDL sub module.
-        List<J2Vhdl_Variable> vars = iClassName.equals("Input") ? mdlt.createInputs() : mdlt.createOutputs();
+        final List<J2Vhdl_Variable> vars = bInput ? mdlt.createInputs() : mdlt.createOutputs();
+        final J2Vhdl_Variable.Location location = bInput? J2Vhdl_Variable.Location.input : J2Vhdl_Variable.Location.output;
         JavaSrc.ClassContent iclassC = iclass.get_classContent();
         for(JavaSrc.VariableInstance mVar: iclassC.get_variableDefinition()) { //are the composite existing modules
           //--------------------------------------------------------------
-          J2Vhdl_Variable var = VhdlConv.createVariable(mVar, null, "", null, mdlt.idxIOVars, null);
-          vars.add(var);
+          String name = mVar.get_variableName();
+          J2Vhdl_Variable var = mdlt.idxIOVars.get(name);
+          if(var !=null ) { //always existing, then it is IO
+            var.location = J2Vhdl_Variable.Location.inout;
+          } else {
+            var = VhdlConv.createVariable(mVar, location, null, "", null, mdlt.idxIOVars, null);
+            mdlt.io.add(var);
+          }
+          vars.add(var);     //put in the adequate list
     } } }
   }
   
@@ -1056,7 +1074,7 @@ public class Java2Vhdl {
 //      type.etype = VhdlExprTerm.ExprTypeEnum.inttype;
 //    }
 //    type.nrofElements = nrBits;
-    J2Vhdl_ConstDef constDef = new J2Vhdl_ConstDef(new J2Vhdl_Variable(nameVhdl, false, type, nrBits, javaPath, nameVhdl), valueVhdl);
+    J2Vhdl_ConstDef constDef = new J2Vhdl_ConstDef(new J2Vhdl_Variable(nameVhdl, J2Vhdl_Variable.Location.record, type, nrBits, javaPath, nameVhdl), valueVhdl);
     this.fdata.idxConstDef.put(javaPath, constDef);
     return constDef;
   }
@@ -1127,6 +1145,19 @@ public class Java2Vhdl {
     
   }
   
+  
+  void genUsedVhdl(Appendable wOut) throws IOException {
+    for(Map.Entry<String,J2Vhdl_ModuleType> esrc: this.fdata.idxModuleTypes.entrySet()) {                         // all sources
+      J2Vhdl_ModuleType mdlt = esrc.getValue();
+      if(mdlt instanceof J2Vhdl_ModuleVhdlType) {
+        J2Vhdl_ModuleVhdlType mdlv = (J2Vhdl_ModuleVhdlType)mdlt;
+        OutTextPreparer.DataTextPreparer args = this.vhdlCmpnDef.createArgumentDataObj();
+        args.setArgument("name", mdlv.nameType);
+        args.setArgument("vars", mdlv.io);
+        this.vhdlCmpnDef.exec(wOut, args);
+      }
+    }
+  }
   
 
   /**Generate all RECORD type definitions in VHDL for all found inner classes which are processes.
@@ -1300,7 +1331,7 @@ public class Java2Vhdl {
     out.append("--------------------+---------------------------------------+------------------------------------------------\n");
     for(Map.Entry<String, J2Vhdl_ModuleType> emdl: this.fdata.idxModuleTypes.entrySet()) {
       J2Vhdl_ModuleType mdl = emdl.getValue();
-      if(!mdl.isOwnVhdlModule) {
+      if(!(mdl instanceof J2Vhdl_ModuleVhdlType)) {
         String sNameModuleType = emdl.getKey();
         if(mdl.idxIfcExpr.size()==0) {
           out.append(sNameModuleType).append("\n");
@@ -1325,16 +1356,16 @@ public class Java2Vhdl {
     boolean bOwnVhdlModules = false;
     for(Map.Entry<String, J2Vhdl_ModuleType> emdl: this.fdata.idxModuleTypes.entrySet()) {
       J2Vhdl_ModuleType mdl = emdl.getValue();
-      if(mdl.isOwnVhdlModule) {
+      if(mdl instanceof J2Vhdl_ModuleVhdlType) {
+        J2Vhdl_ModuleVhdlType mdlv = (J2Vhdl_ModuleVhdlType) mdl;
         if(!bOwnVhdlModules) {
           bOwnVhdlModules = true;
           out.append(" ModuleType VHDL    |  io \n");
           out.append("--------------------+---------------------------------------\n");
         }
         String sNameModuleType = emdl.getKey();
-        for(Map.Entry<String, J2Vhdl_Variable> eVar : mdl.idxIOVars.entrySet()) {
-          J2Vhdl_Variable var = eVar.getValue();
-          sf.add(sNameModuleType).pos(20).add("| ").add(var.sElemVhdl);
+        for(J2Vhdl_Variable var : mdlv.io) {
+          sf.add(sNameModuleType).pos(20).add("| ").add(var.sElemVhdl).add(" : ").add(var.location.s).add(" ").add(var.getVhdlType());
           sf.flushLine("\n");
           sNameModuleType = "";  //next lines, empty
         }

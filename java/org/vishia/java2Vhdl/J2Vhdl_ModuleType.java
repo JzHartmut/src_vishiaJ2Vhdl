@@ -18,6 +18,8 @@ public class J2Vhdl_ModuleType {
   
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-28 Because of new {@link J2Vhdl_ModuleVhdlType} some fields are moved to the new one. 
+   *   It should be near the same as the version 2 times before.
    * <li>2022-07-28 Hartmut enhanced for called included VHDL modules with {@link #inputs}, {@link #outputs} and {@link #idxIOVars}
    * <li>2022-04 created
    * </ul>
@@ -45,7 +47,7 @@ public class J2Vhdl_ModuleType {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2022-07-28"; 
+  public final static String sVersion = "2022-07-29"; 
 
   
   static class IfcConstExpr {
@@ -79,9 +81,6 @@ public class J2Vhdl_ModuleType {
   
   final JavaSrc.ClassDefinition moduleClass;
   
-  /**True then it is an external VHDL module. */
-  final boolean isOwnVhdlModule;
-  
   /**Instance of a top level module. Only for a top level ModuleType an instance is built immediately.
    * All other Module types are only existent because there is a composite reference which builds the instance,
    * and this can be more as one instances for the same type, or also the same type used in different module types as sub module.
@@ -91,16 +90,6 @@ public class J2Vhdl_ModuleType {
   //boolean isTopLevel;
 
   
-  /**If the type contains an <code>Input</code> inner class, its variables. */
-  List<J2Vhdl_Variable> inputs = null;
-  
-  /**If the type contains an <code>Output</code> inner class, its variables. */
-  List<J2Vhdl_Variable> outputs = null;
-  
-  /**If the type contains an <code>Input</code> or <code>Output</code> inner class, its variables. */
-  Map<String, J2Vhdl_Variable> idxIOVars = null;
-
-
   
   
   
@@ -120,9 +109,8 @@ public class J2Vhdl_ModuleType {
   Map<String, J2Vhdl_ModuleInstance> XXXidxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>();
 
 
-  public J2Vhdl_ModuleType(String nameType, JavaSrc javaSrc, JavaSrc.ClassDefinition moduleClass, boolean isTopLevel, boolean isOwnVhdlModule) {
+  public J2Vhdl_ModuleType(String nameType, JavaSrc javaSrc, JavaSrc.ClassDefinition moduleClass, boolean isTopLevel) {
     this.nameType = nameType;
-    this.isOwnVhdlModule = isOwnVhdlModule;
     //this.javaSrc = javaSrc;
     this.moduleClass = moduleClass;
     if(isTopLevel) {
@@ -135,17 +123,6 @@ public class J2Vhdl_ModuleType {
   boolean isTopLevel() { return this.topInstance !=null; }
   
   
-  List<J2Vhdl_Variable> createInputs ( ) { 
-    if(this.idxIOVars == null) { this.idxIOVars = new TreeMap<String, J2Vhdl_Variable>(); }
-    assert(this.inputs == null);
-    return this.inputs = new LinkedList<J2Vhdl_Variable>(); 
-  } 
-  
-  List<J2Vhdl_Variable> createOutputs ( ) { 
-    if(this.idxIOVars == null) { this.idxIOVars = new TreeMap<String, J2Vhdl_Variable>(); }
-    assert(this.outputs == null);
-    return this.outputs = new LinkedList<J2Vhdl_Variable>(); 
-  } 
   
   @Override public String toString() { return this.nameType;  }
   

@@ -20,3 +20,14 @@ ARCHITECTURE BEHAVIORAL OF <&fpgaName> IS
 
 === vhdlConst
 CONSTANT <&name> : <&type> := <&value>;
+
+
+=== vhdlCmpnDef
+
+COMPONENT <&name>
+PORT (
+<:for:var:vars>  <&var.sElemVhdl>: <&var.location.s> <&var.getVhdlType()> <:if:var_next>;<.if>
+<.for> <: >
+);
+END COMPONENT;
+

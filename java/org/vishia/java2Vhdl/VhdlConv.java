@@ -615,7 +615,7 @@ public class VhdlConv {
       
       
       String sOpVhdl = oper.sVhdlVal;
-      if(exprLeft.variable().isLocal) {
+      if(exprLeft.variable().location == J2Vhdl_Variable.Location.local) {
         sOpVhdl = " := ";
       }
       if(exprLeft.variable().name.equals("FpgaIO_SpeAcard_22_02.output.ringMstLo_Pin"))
@@ -1086,11 +1086,12 @@ public class VhdlConv {
     final String sRecVhdl = nameModule == null ? className : nameModule + "_" + className + ".";
     final String sObjJava = nameModule == null ? className : nameModule + "." + varClassName + ".";
     final String namefulliClass = nameOuterClass == null ? className : nameOuterClass + "_" + className;
+    final J2Vhdl_Variable.Location location = J2Vhdl_Variable.Location.record;
     //
     JavaSrc.ClassContent clazzC = clazz.get_classContent();
     if(clazzC.getSize_variableDefinition() >0) {
       for( JavaSrc.VariableInstance varzp: clazzC.get_variableDefinition()) {
-        createVariable(varzp, sRecVhdl, sObjJava, namefulliClass, this.fdata.idxVars, this.fdata.idxRecordVars);
+        createVariable(varzp, location, sRecVhdl, sObjJava, namefulliClass, this.fdata.idxVars, this.fdata.idxRecordVars);
     } }
     return this.fdata.idxVars;
   }
@@ -1112,7 +1113,7 @@ public class VhdlConv {
     JavaSrc.ClassContent clazzC = clazz.get_classContent();
     for( JavaSrc.VariableInstance varzp: clazzC.get_variableDefinition()) {
       //createVariable(varzp, sRecVhdl, sObjJava, namefulliClass, this.fdata.idxVars);
-      createVariable(varzp, sRecVhdl, mdl.nameInstance + ".", mdl.nameInstance, this.fdata.idxVars, this.fdata.idxRecordVars);
+      createVariable(varzp, J2Vhdl_Variable.Location.record, sRecVhdl, mdl.nameInstance + ".", mdl.nameInstance, this.fdata.idxVars, this.fdata.idxRecordVars);
     }
     return this.fdata.idxVars;
   }
@@ -1121,6 +1122,7 @@ public class VhdlConv {
 
   
   static J2Vhdl_Variable createVariable ( JavaSrc.VariableInstance varzp
+      , J2Vhdl_Variable.Location location
       , String sRecVhdl, String sObjJava, String namefulliClass
       , Map<String, J2Vhdl_Variable> dstIx, Map<String, J2Vhdl_Variable> dstTypeIx) {
     String name = varzp.get_variableName();
@@ -1151,7 +1153,13 @@ public class VhdlConv {
             eType.nrofElements = Integer.parseInt(sNrBits);
             bTypeAnnot = true;
           }
+          else if(annot.startsWith("Fpga.STD_LOGIC")) {
+            eType.etype = VhdlExprTerm.ExprTypeEnum.stdtype;
+            eType.nrofElements = 0;
+            bTypeAnnot = true;
+          }
           else {
+            VhdlConv.vhdlError("faulty annotation: " + annot, varzp);
             eType.etype = VhdlExprTerm.ExprTypeEnum.bitVtype;
             sNrBits = "32";
             eType.nrofElements = 32;
@@ -1175,16 +1183,13 @@ public class VhdlConv {
       final String sElemJava = sObjJava +name;
       final String sVarName = sObjJava.length() >0 ? sObjJava : name;
       final int nrBits = sNrBits == null? 0 : Integer.parseInt(sNrBits);
-      final boolean bLocal;
       final String nameInClass;
       if(namefulliClass ==null) {                          // local process varibale
         nameInClass = name;
-        bLocal = true;
       } else {
         nameInClass = namefulliClass + "." + name;
-        bLocal = false;
       }
-      final J2Vhdl_Variable var = new J2Vhdl_Variable(sVarName, bLocal, eType, nrBits, sElemJava, sElemVhdl);
+      final J2Vhdl_Variable var = new J2Vhdl_Variable(sVarName, location, eType, nrBits, sElemJava, sElemVhdl);
       dstIx.put(sElemJava, var);                  // access to var from a process
       if(dstTypeIx !=null) {
         dstTypeIx.put(nameInClass, var);            // access to var for Record definition
@@ -1250,7 +1255,7 @@ public class VhdlConv {
     for(JavaSrc.Statement stmnt: ctor.get_statement()) {                   // all first level statements in the ctor
       if(stmnt.get_variableDefinition()!=null) {
         for(JavaSrc.VariableInstance vdef: stmnt.get_variableDefinition()) {
-          J2Vhdl_Variable var = createVariable(vdef, "", "", null, this.fdata.idxProcessVars, null);
+          J2Vhdl_Variable var = createVariable(vdef, J2Vhdl_Variable.Location.local, "", "", null, this.fdata.idxProcessVars, null);
           if(var !=null) {
             wOut.append("\n  VARIABLE ").append(var.name).append(" : ").append(var.getVhdlType()).append(";");
           }

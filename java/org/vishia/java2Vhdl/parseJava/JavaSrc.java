@@ -1624,7 +1624,7 @@ public class JavaSrc extends JavaSrc_Base {
   
   
     @Override public String toString ( ) { 
-      return "TODO toString";
+      return super.name;
     }
   
   }
