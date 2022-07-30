@@ -487,6 +487,11 @@ public final class VhdlExprTerm extends SrcInfo {
           sNameIclass = null;             // maybe null if operation of the module is called.
           bReferencedModule = true;
           //bRefNextUsed = true;
+        } else if(sRef.equals("vhdlMdl")) {
+          mdlRef = mdlRef.idxSubModules.get(nameIclassArg);
+          sNameIclass = null;             // maybe null if operation of the module is called.
+          bReferencedModule = true;
+          //bRefNextUsed = true;
         } else if(sRef.equals("ref")) {                      // get the referenced module, and maybe an inner sAccess
           J2Vhdl_ModuleInstance.InnerAccess mdlRef2 = mdlRef.idxAggregatedModules.get(sRefNext);
           if(mdlRef2 == null) {

@@ -1381,44 +1381,52 @@ public class Java2Vhdl {
           String nameiClass = iclass.get_classident();
           if(sAnnot !=null && sAnnot.equals("Fpga.VHDL_CALL")) {            // it is an inner class for a VHDL RECORD and PROCESS
             //
-            String namePrc = sModule  + "_" + nameiClass;                      // search that ctor of the class
+            String nameVhdlMdl = sModule  + "_" + nameiClass + "_" + "vhdlMdl";                      // search that ctor of the class
             String nameInnerClassVariable = Character.toLowerCase(nameiClass.charAt(0))+ nameiClass.substring(1);
             JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass, nameInnerClassVariable); // which is designated with @Fpga.CTOR_PROCESS
             if(ctor !=null) {
-              String ctorName = ctor.get_constructor();
-              List<J2Vhdl_ModuleVhdlType.Assgn> assignments = new LinkedList<J2Vhdl_ModuleVhdlType.Assgn>();
-              for(JavaSrc.Statement stmnt: ctor.get_statement()) {             // all first level statements in the ctor
-                //CharSequence txt = this.vhdlConv.genStatement(stmnt, 1);
-                JavaSrc.Expression expr = stmnt.get_Expression();
-                if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
-                  
-                  StringBuilder sAssg = new StringBuilder(100);
-                  VhdlExprTerm term = this.vhdlConv.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=");
-                  int sep = sAssg.indexOf("<=");
-                  int sepe = sAssg.indexOf(";");
-                  final J2Vhdl_ModuleVhdlType.Assgn assgn;
-                  if(sep >=0) {
-                    if(term.varCurrent_.getLocation() == J2Vhdl_Variable.Location.input) {
-                      assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(0, sep).trim(), sAssg.substring(sep+2, sepe));
-                    } else {   //not output, output is right side of expression.
-                      assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(sep+2, sepe).trim(), sAssg.substring(0, sep));
-                    }
-                  } else {
-                    assgn = new J2Vhdl_ModuleVhdlType.Assgn("??", sAssg.toString());
-                  }
-                  assignments.add(assgn);
+              String vhdlMdlType = null; 
+              for(JavaSrc.Argument arg : ctor.get_argument()) {
+                if(arg.get_variableName().equals("vhdlMdl")) {
+                  JavaSrc.Type argType = arg.get_type();
+                  vhdlMdlType = argType.get_name();
+                  break;
                 }
-              } 
-              OutTextPreparer.DataTextPreparer args = this.vhdlCmpnCall.createArgumentDataObj();
-              args.setArgument("name", moduleInstance.nameInstance);
-              args.setArgument("typeVhdl", moduleInstance.type.nameType);
-              args.setArgument("vars", assignments);
-              this.vhdlCmpnCall.exec(wOut, args);
-
-              //
-              this.vhdlConv.cleanProcessVar();
-//              wOut.append("\nEND IF; END PROCESS;\n");
-              //
+              }
+              if(vhdlMdlType == null) {
+                VhdlConv.vhdlError("VHDL_CALL ctor must have an argument 'vhdlMdl'", ctor);
+              }
+              else {
+                String ctorName = ctor.get_constructor();
+                List<J2Vhdl_ModuleVhdlType.Assgn> assignments = new LinkedList<J2Vhdl_ModuleVhdlType.Assgn>();
+                for(JavaSrc.Statement stmnt: ctor.get_statement()) {             // all first level statements in the ctor
+                  //CharSequence txt = this.vhdlConv.genStatement(stmnt, 1);
+                  JavaSrc.Expression expr = stmnt.get_Expression();
+                  if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
+                    
+                    StringBuilder sAssg = new StringBuilder(100);
+                    VhdlExprTerm term = this.vhdlConv.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=");
+                    int sep = sAssg.indexOf("<=");
+                    int sepe = sAssg.indexOf(";");
+                    final J2Vhdl_ModuleVhdlType.Assgn assgn;
+                    if(sep >=0) {
+                      if(term.varCurrent_.getLocation() == J2Vhdl_Variable.Location.input) {
+                        assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(0, sep).trim(), sAssg.substring(sep+2, sepe));
+                      } else {   //not output, output is right side of expression.
+                        assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(sep+2, sepe).trim(), sAssg.substring(0, sep));
+                      }
+                    } else {
+                      assgn = new J2Vhdl_ModuleVhdlType.Assgn("??", sAssg.toString());
+                    }
+                    assignments.add(assgn);
+                  }
+                } 
+                OutTextPreparer.DataTextPreparer args = this.vhdlCmpnCall.createArgumentDataObj();
+                args.setArgument("name", nameVhdlMdl);
+                args.setArgument("typeVhdl", vhdlMdlType);
+                args.setArgument("vars", assignments);
+                this.vhdlCmpnCall.exec(wOut, args);
+              }
             }
         } }
       }

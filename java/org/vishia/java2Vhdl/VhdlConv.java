@@ -801,6 +801,12 @@ public class VhdlConv {
               sRef = mdl.nameInstance + '.' + refName + '.' ;        
             }
           }
+          else if(refName.equals("vhdlMdl") ) {                  // z. is the last own value, argument
+            assert(false);
+            dbg = "z";
+            sElemJava = null;
+            sRef = null;
+          }
           else if(refName.equals("z") ) {                  // z. is the last own value, argument
             dbg = "z";
             sElemJava = name;
