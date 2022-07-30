@@ -583,11 +583,10 @@ public class Java2Vhdl {
               System.out.println("  Module: " + nameSubModule + " : " + sType);
               J2Vhdl_ModuleType typeSubModule = this.fdata.idxModuleTypes.get(sType);
               if(typeSubModule !=null) {
-                J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubModule, typeSubModule, false, mVar); //typeSubModule, false);
                 if(mdlt.idxSubModules == null) { 
-                  mdlt.idxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>();
+                  mdlt.idxSubModules = new TreeMap<String, JavaSrc.VariableInstance>();
                 }
-                mdlt.idxSubModules.put(nameSubModule, subModule);  // register the module instance in the type as used composite sub module
+                mdlt.idxSubModules.put(nameSubModule, mVar);  // register the module instance in the type as used composite sub module
                 
               } else {
                 VhdlConv.vhdlError("evaluteModules() - J2Vhdl_ModuleType not found :" + sType + " in " + iClassName, mVar);
@@ -631,24 +630,28 @@ public class Java2Vhdl {
   private void createModuleInstances ( ) {
     J2Vhdl_ModuleInstance mdl = this.fdata.topInstance;
     this.fdata.idxModules.put(mdl.nameInstance, mdl); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
-    J2Vhdl_ModuleType mdlt = mdl.type;
-    createModuleInstancesRecursively(mdlt, null, 0);
+    createModuleInstancesRecursively(mdl, null, 0);
   }
   
   
-  private void createModuleInstancesRecursively ( J2Vhdl_ModuleType mdlt0, String nameMdl0, int recursion ) {
+  private void createModuleInstancesRecursively ( J2Vhdl_ModuleInstance mdl0, String nameMdl0, int recursion ) {
+    J2Vhdl_ModuleType mdlt0 = mdl0.type;
     if(recursion >3) {
       VhdlConv.vhdlError("too many sub modules nested", mdlt0.moduleClass);
     }
     else if(mdlt0.idxSubModules !=null ){
-      for(Map.Entry<String, J2Vhdl_ModuleInstance> e : mdlt0.idxSubModules.entrySet()) {
-        J2Vhdl_ModuleInstance mdl = e.getValue();
-        if(nameMdl0 != null) {
-          mdl.nameInstance = nameMdl0 + "_" + mdl.nameInstance;  // change the global module instance name in the instance.
-        }
-        this.fdata.idxModules.put(mdl.nameInstance, mdl); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
-        J2Vhdl_ModuleType mdlt1 = mdl.type;
-        createModuleInstancesRecursively(mdlt1, mdl.nameInstance, recursion +1);
+      for(Map.Entry<String, JavaSrc.VariableInstance> e : mdlt0.idxSubModules.entrySet()) {
+        final String innerNameSubmdl = e.getKey();
+        JavaSrc.VariableInstance mVar = e.getValue();
+        final JavaSrc.Type type = mVar.get_type();
+        final String sType = type.get_name();          // search the appropriate parsed source.java result
+        J2Vhdl_ModuleType typeSubmdl = this.fdata.idxModuleTypes.get(sType);
+        final String nameSubmdl = nameMdl0 == null ? innerNameSubmdl : nameMdl0 + "_" + innerNameSubmdl;
+        J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubmdl, typeSubmdl, false, mVar); //typeSubModule, false);
+        if(mdl0.idxSubModules == null) { mdl0.idxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>(); }
+        mdl0.idxSubModules.put(innerNameSubmdl, subModule);
+        this.fdata.idxModules.put(subModule.nameInstance, subModule); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
+        createModuleInstancesRecursively(subModule, subModule.nameInstance, recursion +1);
       }
     }
   }
@@ -661,10 +664,8 @@ public class Java2Vhdl {
       if(mdl.mVarInit !=null) {       //not for the top level, only for modules which are created with = new Ctor(....)
         prepareModuleInstance(mdl);
       }
-      J2Vhdl_ModuleType mdlt = mdl.type;
-      //if(mdlt.idxSubModules !=null) {
-        evaluateModulesCtor(mdlt);                           //evaluates the ctor for any instance of the type.
-      //}                                                   // find init(ref, ref...) statement in ctor
+      evaluateModulesCtor(mdl);                            //evaluates the ctor for any instance of the type.
+      //                                                   // find init(ref, ref...) statement in ctor
     }
   }
 
@@ -753,8 +754,8 @@ public class Java2Vhdl {
    * It may contain some <code>this.module.init(ref,...)</code> routines for module aggregations.
    * @param iclass
    */
-  private void evaluateModulesCtor ( J2Vhdl_ModuleType mdlt) {
-    JavaSrc.ClassContent iclassC = mdlt.moduleClass.get_classContent();
+  private void evaluateModulesCtor ( J2Vhdl_ModuleInstance mdl) {
+    JavaSrc.ClassContent iclassC = mdl.type.moduleClass.get_classContent();
     Iterable<JavaSrc.ConstructorDefinition> ctors = iclassC.get_constructorDefinition();
     if(ctors !=null) {
       for(JavaSrc.ConstructorDefinition ctor: ctors) {
@@ -774,7 +775,7 @@ public class Java2Vhdl {
                 String nameSubmodule = refSubModule.getSimpleRefVariable();
                 if(nameSubmodule == null) { VhdlConv.vhdlError("style guide init", oper); }
                 else {
-                  J2Vhdl_ModuleInstance subModule = mdlt.idxSubModules.get(nameSubmodule);
+                  J2Vhdl_ModuleInstance subModule = mdl.idxSubModules.get(nameSubmodule);
                   JavaSrc.ClassDefinition subModuleClass = subModule.type.moduleClass;
                   JavaSrc.ClassContent subModuleClassC = subModuleClass.get_classContent();
                   for(JavaSrc.MethodDefinition operInitType : subModuleClassC.get_methodDefinition()) {
@@ -1465,7 +1466,7 @@ public class Java2Vhdl {
     for(Map.Entry<String, J2Vhdl_ModuleInstance> emdl: this.fdata.idxModules.entrySet()) {
       J2Vhdl_ModuleInstance mdl = emdl.getValue();
       String name = emdl.getKey();
-      out.append("\n== Module: ").append(name);
+      out.append("\n\n== Module: ").append(name);
       if(mdl.idxAggregatedModules !=null && mdl.idxAggregatedModules.size() >0) {
         out.append("\n  localName         | accessed module     {@link J2Vhdl_ModuleInstance#idxAggregatedModules}");
         out.append("\n--------------------+----------------\n");
@@ -1478,20 +1479,19 @@ public class Java2Vhdl {
           sf.add("  ").add(innerName).pos(20).add("| ").add(sName).add(" : ").add(sType);
           sf.flushLine("\n");
         }
-        out.append("--------------------+----------------\n");
+        out.append("--------------------+----------------");
       }
-      J2Vhdl_ModuleType mdlt = mdl.type;
-      if(mdlt.idxSubModules !=null && mdlt.idxSubModules.size() >0) {
-        out.append("\n  localName         | sub module     {@link J2Vhdl_ModuleType#idxSubModules}");
+      if(mdl.idxSubModules !=null && mdl.idxSubModules.size() >0) {
+        out.append("\n  localName         | sub module     {@link J2Vhdl_ModuleInstance#idxSubModules}");
         out.append("\n--------------------+----------------\n");
-        for(Map.Entry<String, J2Vhdl_ModuleInstance> e : mdlt.idxSubModules.entrySet()) {
+        for(Map.Entry<String, J2Vhdl_ModuleInstance> e : mdl.idxSubModules.entrySet()) {
           String innerName = e.getKey();
           J2Vhdl_ModuleInstance submdl = e.getValue();
           sf.reset();
           sf.add("  ").add(innerName).pos(20).add("| ").add(submdl.nameInstance).add(" : ").add(submdl.type.nameType);
           sf.flushLine("\n");
         }
-        out.append("--------------------+----------------\n");
+        out.append("--------------------+----------------");
       }
     }
     //

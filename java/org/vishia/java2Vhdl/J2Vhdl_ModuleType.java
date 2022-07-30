@@ -102,9 +102,9 @@ public class J2Vhdl_ModuleType {
   
   Map<String, IfcConstExpr> idxIfcExpr = new TreeMap<String, IfcConstExpr>();
   
-  /**Composite sub modules name as key and the module instance. 
-   * Hint: Also stored in */
-  Map<String, J2Vhdl_ModuleInstance> idxSubModules = null;
+  /**Composite sub modules name as key and the variable with type to initialize. 
+   * This is temporary till {@link J2Vhdl_ModuleInstance#idxSubModules} is created. */
+  Map<String, JavaSrc.VariableInstance> idxSubModules = null;
 
 
   public J2Vhdl_ModuleType(String nameType, JavaSrc javaSrc, JavaSrc.ClassDefinition moduleClass, boolean isTopLevel) {

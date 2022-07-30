@@ -23,6 +23,12 @@ public class J2Vhdl_ModuleInstance {
   
   JavaSrc.VariableInstance mVarInit;
   
+  /**Composite sub modules name as key and the module instance. 
+   * Hint: Also stored in {@link J2Vhdl_FpgaData#idxModules} for VHDL-flat usage*/
+  Map<String, J2Vhdl_ModuleInstance> idxSubModules = null;
+
+
+  
   /**Associations between the used internal name name as key and the aggregated module. */
   Map<String, J2Vhdl_ModuleInstance.InnerAccess> idxAggregatedModules = new TreeMap<String, J2Vhdl_ModuleInstance.InnerAccess>();
 
