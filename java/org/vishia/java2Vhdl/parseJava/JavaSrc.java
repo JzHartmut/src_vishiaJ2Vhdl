@@ -558,7 +558,7 @@ public class JavaSrc extends JavaSrc_Base {
         } catch (IOException e) { throw new RuntimeException("unexpected"); }
       }
       for(JavaSrc.ExprPart part : super.exprPart) {
-        if(part.operator.equals("=")) { return true; }
+        if(part.operator !=null && part.operator.equals("=")) { return true; }
       }
       return false; 
     }

@@ -43,4 +43,14 @@ public class J2Vhdl_ModuleVhdlType extends J2Vhdl_ModuleType {
   } 
 
   
+  public static class Assgn {
+    public final String name, assgn;
+
+    public Assgn(String name, String assgn) {
+      this.name = name;
+      this.assgn = assgn;
+    }
+    
+  }
+  
 }

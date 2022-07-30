@@ -31,3 +31,11 @@ PORT (
 );
 END COMPONENT;
 
+=== vhdlCmpnCall
+
+<&name>: <&typeVhdl>
+Port MAP( 
+<:for:var:vars>  <&var.name> => <&var.assgn> <:if:var_next>,<.if>
+<.for> <: >
+);
+

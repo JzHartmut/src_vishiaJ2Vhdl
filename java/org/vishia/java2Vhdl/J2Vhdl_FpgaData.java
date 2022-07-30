@@ -48,6 +48,11 @@ public class J2Vhdl_FpgaData {
    */
   J2Vhdl_ModuleInstance topInstance;
 
+  VhdlExprTerm.ExprType typeStdLogic = new VhdlExprTerm.ExprType(VhdlExprTerm.ExprTypeEnum.stdtype, 0);
+
+  VhdlExprTerm.ExprType typeBit = new VhdlExprTerm.ExprType(VhdlExprTerm.ExprTypeEnum.bittype, 0);
+
+  J2Vhdl_Variable varClk = new J2Vhdl_Variable("clk", J2Vhdl_Variable.Location.input, this.typeBit, 0, "clk", "clk");
   
   
 }

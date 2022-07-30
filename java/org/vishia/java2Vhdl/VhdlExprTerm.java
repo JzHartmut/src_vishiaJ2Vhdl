@@ -5,7 +5,6 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import org.vishia.genJavaOutClass.SrcInfo;
-import org.vishia.java2Vhdl.J2Vhdl_Variable;
 import org.vishia.java2Vhdl.parseJava.JavaSrc;
 import org.vishia.util.Debugutil;
 import org.vishia.util.StringFunctions;
@@ -16,6 +15,10 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-28 in {@link #getVariableAccess(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleVariable, J2Vhdl_ModuleInstance, String)}:
+   *   Access to {@link J2Vhdl_ModuleVhdlType#idxIOVars}  
+   * <li>2022-07-28 Access to Fpga.clk as fix dirty solution.
+   * <li>2022-07-28 now beside "mdl" now also "thism" for access to the module class (environment class) 
    * <li>2022-07-25 in {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
    *   "smd" as identification for sub module accepted.
    * <li>2022-07-25 in {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
@@ -71,7 +74,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2022-07-25"; 
+  public final static String sVersion = "2022-07-28"; 
 
   
   /**Type of a variable and a build expression.
@@ -104,7 +107,19 @@ public final class VhdlExprTerm extends SrcInfo {
       this.etype = src.etype;
       this.nrofElements = src.nrofElements;
     }
+
     
+    
+    public ExprType() {
+    }
+
+
+
+    public ExprType(ExprTypeEnum etype, int nrofElements) {
+      this.etype = etype;
+      this.nrofElements = nrofElements;
+    }
+
     @Override public String toString() { return this.etype.toString() + (this.nrofElements <=1 ? "" : Integer.toString(this.nrofElements)); }
   }
 
@@ -316,6 +331,7 @@ public final class VhdlExprTerm extends SrcInfo {
         this.b.append(exprRight.b).append(' ');              // "+ @" right side expression used, it is the before prepared one.
       } else { //only here if this.b is empty                // + part, then append the part from source expression to the term.
         assert(this.b.length() ==0);
+        //======>>>>
         if(!addPartValue(part.get_value(), false, mdl, nameInnerClassVariable)) {    // false if the operand is not valid, a mask or time 
           this.b.setLength(posEnd);                          // then remove the operator also again, 
           return false;                                      // faulty variable, especially mask, or time.
@@ -424,7 +440,7 @@ public final class VhdlExprTerm extends SrcInfo {
       if(VhdlConv.d.dbgStop) {
         int[] lineColumn = new int[2];
         String file = val.getSrcInfo(lineColumn); //BlinkingLed_Fpga
-        dbgStop = file.contains("XRxSpe.java") && lineColumn[0] >= 120 && lineColumn[0] <= 120;
+        dbgStop = file.contains("BlinkingLedCt.java") && lineColumn[0] >= 176 && lineColumn[0] <= 176;
       }
       if(dbgStop){
         Debugutil.stop();
@@ -467,7 +483,7 @@ public final class VhdlExprTerm extends SrcInfo {
         } else if(sRef.equals("z")) {
           sNameIclass = nameIclassArg;
           bReferencedModule = true;
-        } else if(sRef.equals("mdl")) {
+        } else if(sRef.equals("mdl") || sRef.equals("thism")) {
           sNameIclass = null;             // maybe null if operation of the module is called.
           bReferencedModule = true;
           //bRefNextUsed = true;
@@ -562,7 +578,11 @@ public final class VhdlExprTerm extends SrcInfo {
 //              Debugutil.stop();  //Detection of time variables ....
 //            }
           } else {
-            varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
+            if(sRef !=null && sRef.equals("Fpga")) {
+              varDescr = VhdlConv.d.fdata.varClk;
+            } else {
+              varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
+            }
           }
           if(varDescr !=null) {
             if(varDescr.sElemJava.contains("ringMstLo_Pin"))
@@ -644,6 +664,8 @@ public final class VhdlExprTerm extends SrcInfo {
         if(dbgStop)
           Debugutil.stop();
         if(sRef !=null && sRef.equals("Fpga")) {             // static operation from the Fpga class
+          if(name.equals("clk"))
+            Debugutil.stop();
           try {                                              //Fpga.getBit(...) etc.
             VhdlConv.GenOperation genOperation = VhdlConv.d.idxFpgaOperations.get(name);
             if(genOperation ==null) {
@@ -748,32 +770,43 @@ public final class VhdlExprTerm extends SrcInfo {
       //else { vhdlError("reference only with a variable possible", ref);  sRef = "??."; }
     dbg="refnull";
     sElemJava = name;                                      // especially for the ioPins module: use the type to find the variable.
-    final String sMdlIdent = mdl.nameInstance.equals("ioPins") ? mdl.type.nameType 
-        : mdl.nameInstance;                                // else: The name of the variable is built with the instance name.
-    //
-    sRef = sMdlIdent + "." + ( nameInnerClassVariable == null || nameInnerClassVariable.length()==0 ? "" : nameInnerClassVariable + '.');          
-    J2Vhdl_Variable varDescr = VhdlConv.d.fdata.idxProcessVars.get(sElemJava);
-    final String sElemJava2 = sRef + sElemJava;
-    if(varDescr == null) {
-      varDescr = VhdlConv.d.fdata.idxVars.get(sElemJava2);
-    } else {
-      Debugutil.stop();                  // a local PROCESS variable
-    }
-    if(varDescr == null && sElemJava2.endsWith("._val_")) {// Pattern for a state value
-      final String sElemJava3 = sElemJava2.substring(0, sElemJava2.length()-6);
-      varDescr = VhdlConv.d.fdata.idxVars.get(sElemJava3);
-    }
-    if(varDescr == null) {
-      J2Vhdl_ConstDef cvar = VhdlConv.d.fdata.idxConstDef.get(sElemJava2);
-      if(cvar !=null) {
-        varDescr = cvar.var;
+    
+    if(mdl.type instanceof J2Vhdl_ModuleVhdlType) {        // == called VHDL module
+      J2Vhdl_ModuleVhdlType mdlt = (J2Vhdl_ModuleVhdlType) mdl.type;
+      if(!nameInnerClassVariable.equals("input") && !nameInnerClassVariable.equals("output")) {
+        VhdlConv.vhdlError("called VHDL module, variables should be input.name or output.name", var);
       }
-    }
-    if(varDescr == null) {
-      VhdlConv.vhdlError("VhdlExprTerm.getVariableAccess() - unknown variable >>" + sElemJava2 + "<< :" + dbg, var);
-      return null;
-    } else {
+      J2Vhdl_Variable varDescr = mdlt.idxIOVars.get(sElemJava);
       return varDescr;
+    }
+    else {                                                 //== other module
+    
+      final String sMdlIdent = mdl.nameInstance.equals("ioPins") ? mdl.type.nameType 
+          : mdl.nameInstance;                                // else: The name of the variable is built with the instance name.
+      sRef = sMdlIdent + "." + ( nameInnerClassVariable == null || nameInnerClassVariable.length()==0 ? "" : nameInnerClassVariable + '.');          
+      J2Vhdl_Variable varDescr = VhdlConv.d.fdata.idxProcessVars.get(sElemJava);
+      final String sElemJava2 = sRef + sElemJava;
+      if(varDescr == null) {
+        varDescr = VhdlConv.d.fdata.idxVars.get(sElemJava2);
+      } else {
+        Debugutil.stop();                  // a local PROCESS variable
+      }
+      if(varDescr == null && sElemJava2.endsWith("._val_")) {// Pattern for a state value
+        final String sElemJava3 = sElemJava2.substring(0, sElemJava2.length()-6);
+        varDescr = VhdlConv.d.fdata.idxVars.get(sElemJava3);
+      }
+      if(varDescr == null) {
+        J2Vhdl_ConstDef cvar = VhdlConv.d.fdata.idxConstDef.get(sElemJava2);
+        if(cvar !=null) {
+          varDescr = cvar.var;
+        }
+      }
+      if(varDescr == null) {
+        VhdlConv.vhdlError("VhdlExprTerm.getVariableAccess() - unknown variable >>" + sElemJava2 + "<< :" + dbg, var);
+        return null;
+      } else {
+        return varDescr;
+      }
     }
   }
 

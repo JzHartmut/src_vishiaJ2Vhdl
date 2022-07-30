@@ -34,6 +34,7 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-28 {@link #genVhdlCall(StringBuilder)}
    * <li>2022-07-28 {@link #createModuleInstances()} and {@link #prepareModuleInstance(J2Vhdl_ModuleInstance)} as extra call
    *   dissolved from {@link #evaluateModuleTypes()}. This is because in the past only the top level has sub modules,
    *   and now first all sub modules should be gathered, and after all are given, should be prepared.
@@ -269,7 +270,7 @@ public class Java2Vhdl {
   
   OutTextPreparer vhdlHead, vhdlAfterPort, vhdlConst;
   
-  OutTextPreparer vhdlCmpnDef;
+  OutTextPreparer vhdlCmpnDef, vhdlCmpnCall;
 
   
   /**Creates all working instances.
@@ -310,6 +311,7 @@ public class Java2Vhdl {
     this.vhdlAfterPort = new OutTextPreparer("vhdlAfterPort", null, "fpgaName", tplTexts.get("vhdlAfterPort"));
     this.vhdlConst = new OutTextPreparer("vhdlConst", null, "name, type, value", tplTexts.get("vhdlConst"));
     this.vhdlCmpnDef = new OutTextPreparer("vhdlCmpnDef", null, "name, vars", tplTexts.get("vhdlCmpnDef"));
+    this.vhdlCmpnCall = new OutTextPreparer("vhdlCmpnCall", null, "name, typeVhdl, vars", tplTexts.get("vhdlCmpnCall"));
     parseAll();                                                              // parse top level and depending classes. 
     evaluateModuleTypes();
     createModuleInstances();
@@ -381,6 +383,10 @@ public class Java2Vhdl {
     }
     
     StringBuilder out = new StringBuilder(2400);
+    genVhdlCall(out);
+    wOut.append(out);
+    
+    out = new StringBuilder(2400);
     genProcesses(out);
     wOut.append(out);
     
@@ -1050,7 +1056,8 @@ public class Java2Vhdl {
       if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
         String nameiClass = iclass.get_classident();
         String annotation = iclass.get_Annotation();
-        if(annotation !=null && annotation.equals("Fpga.VHDL_PROCESS") || nameiClass.equals("In") || nameiClass.equals("Out")) {
+        if( annotation !=null && (annotation.equals("Fpga.VHDL_PROCESS") || annotation.equals("Fpga.VHDL_CALL")) 
+         || nameiClass.equals("In") || nameiClass.equals("Out")) {
 //        if( (!isToplevel || !nameiClass.equals("In") && !nameiClass.equals("Out")) && !nameiClass.equals("Ref") && !nameiClass.equals("Modules")) {
           final String nameProcess = nameModule + "_" + nameiClass;
           this.vhdlConv.setInnerClass(nameProcess, nameModule);              // records from all inner classes, same name as type
@@ -1241,7 +1248,7 @@ public class Java2Vhdl {
           final String nameiClass = iclass.get_classident();
           JavaSrc.ClassContent iClassC = iclass.get_classContent();
           String sAnnot = iclass.get_Annotation();
-          if(sAnnot !=null && sAnnot.equals("Fpga.VHDL_PROCESS") && iClassC.getSize_variableDefinition() >0
+          if(sAnnot !=null && (sAnnot.equals("Fpga.VHDL_PROCESS") || sAnnot.equals("Fpga.VHDL_CALL")) && iClassC.getSize_variableDefinition() >0
             || ( !result.isTopLevel() && (nameiClass.equals("In") || nameiClass.equals("Out")) ) ) {
             final String nameRecord = nameModule + "_" + nameiClass;
             this.vhdlConv.setInnerClass(nameRecord, nameModule);
@@ -1284,7 +1291,7 @@ public class Java2Vhdl {
           String nameiClass = iclass.get_classident();
           String sAnnot = iclass.get_Annotation();
           JavaSrc.ClassContent iClassC = iclass.get_classContent();
-          if(sAnnot !=null && sAnnot.equals("Fpga.VHDL_PROCESS") && iClassC.getSize_variableDefinition() >0
+          if(sAnnot !=null && (sAnnot.equals("Fpga.VHDL_PROCESS") || sAnnot.equals("Fpga.VHDL_CALL")) && iClassC.getSize_variableDefinition() >0
              || ( !isTopLevel && (nameiClass.equals("In") || nameiClass.equals("Out")) ) ) {
             final String nameProcess = nameModule + "_" + nameiClass;
             final String nameRecord = nameClass + "_" + nameiClass + "_REC";
@@ -1359,6 +1366,86 @@ public class Java2Vhdl {
     
   }
 
+
+  
+  
+  void genVhdlCall(StringBuilder wOut) throws Exception {
+    for(Map.Entry<String, J2Vhdl_ModuleInstance> esrc: this.fdata.idxModules.entrySet()) {          // all sources, instances 
+      J2Vhdl_ModuleInstance moduleInstance = esrc.getValue();
+      String sModule = esrc.getKey();
+      JavaSrc.ClassDefinition theclass = moduleInstance.type.moduleClass;     // get the only one public class of module
+      JavaSrc.ClassContent theClassC = theclass.get_classContent();
+      Iterable<JavaSrc.ClassDefinition> iclasses = theClassC.get_classDefinition(); 
+        if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
+          String sAnnot = iclass.get_Annotation();
+          String nameiClass = iclass.get_classident();
+          if(sAnnot !=null && sAnnot.equals("Fpga.VHDL_CALL")) {            // it is an inner class for a VHDL RECORD and PROCESS
+            //
+            String namePrc = sModule  + "_" + nameiClass;                      // search that ctor of the class
+            String nameInnerClassVariable = Character.toLowerCase(nameiClass.charAt(0))+ nameiClass.substring(1);
+            JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass, nameInnerClassVariable); // which is designated with @Fpga.CTOR_PROCESS
+            if(ctor !=null) {
+              String ctorName = ctor.get_constructor();
+              List<J2Vhdl_ModuleVhdlType.Assgn> assignments = new LinkedList<J2Vhdl_ModuleVhdlType.Assgn>();
+              for(JavaSrc.Statement stmnt: ctor.get_statement()) {             // all first level statements in the ctor
+                //CharSequence txt = this.vhdlConv.genStatement(stmnt, 1);
+                JavaSrc.Expression expr = stmnt.get_Expression();
+                if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
+                  
+                  StringBuilder sAssg = new StringBuilder(100);
+                  VhdlExprTerm term = this.vhdlConv.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=");
+                  int sep = sAssg.indexOf("<=");
+                  int sepe = sAssg.indexOf(";");
+                  final J2Vhdl_ModuleVhdlType.Assgn assgn;
+                  if(sep >=0) {
+                    if(term.varCurrent_.getLocation() == J2Vhdl_Variable.Location.input) {
+                      assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(0, sep).trim(), sAssg.substring(sep+2, sepe));
+                    } else {   //not output, output is right side of expression.
+                      assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(sep+2, sepe).trim(), sAssg.substring(0, sep));
+                    }
+                  } else {
+                    assgn = new J2Vhdl_ModuleVhdlType.Assgn("??", sAssg.toString());
+                  }
+                  assignments.add(assgn);
+                }
+              } 
+              OutTextPreparer.DataTextPreparer args = this.vhdlCmpnCall.createArgumentDataObj();
+              args.setArgument("name", moduleInstance.nameInstance);
+              args.setArgument("typeVhdl", moduleInstance.type.nameType);
+              args.setArgument("vars", assignments);
+              this.vhdlCmpnCall.exec(wOut, args);
+
+              //
+              this.vhdlConv.cleanProcessVar();
+//              wOut.append("\nEND IF; END PROCESS;\n");
+              //
+            }
+        } }
+      }
+    
+  }
+
+
+  /**Search the appropriate ctor of the given class which is designated with @{@link Fpga.VHDL_PROCESS}
+   * @param clazz from this inner class
+   * @return the parse result for that.
+   */
+  public JavaSrc.ConstructorDefinition getCtorVhdlCall ( JavaSrc.ClassDefinition clazz, String nameInnerClassVariable) {
+    JavaSrc.ClassContent clazzC = clazz.get_classContent();
+    if(clazzC.getSize_constructorDefinition()>0) {
+      for(JavaSrc.ConstructorDefinition ctor: clazzC.get_constructorDefinition()) {
+        JavaSrc.ModifierMethod modif = ctor.get_ModifierMethod();
+        if(modif !=null) {
+          String annot = modif.get_Annotation();
+          if(annot !=null && annot.equals("Fpga.VHDL_CALL")) {
+            return ctor;
+          }
+        }
+    } }
+    return null;
+  }
+  
+  
   /**Gen all processes for VHDL from all parsed sources.
    * @param wOut to write
    * @throws Exception 

@@ -21,6 +21,8 @@ public class VhdlConv {
   
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-06 in {@link #genAssignment(Appendable, VhdlExprTerm, J2Vhdl_Operator, VhdlExprTerm, ExprPart, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPartTrueFalse, J2Vhdl_ModuleInstance, String, CharSequence, boolean)}:
+   *   now uses TO_BIT and TO_STDULOGIC instead IF and WHEN for the assignments, important for assign to called Vhdl
    * <li>2022-07-06 Now supports char as STD_LOGIC. 
    *   <ul>
    *   <li>{@link #getOperator(ExprPart, VhdlExprTerm, boolean)} not using XNOR on = for STD_LOGIC, TODO document there
@@ -283,9 +285,9 @@ public class VhdlConv {
 
 
   
-  void genAssignment ( Appendable out, JavaSrc.Expression asgn, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, int indent, boolean bInsideProcess) throws Exception {
+  VhdlExprTerm genAssignment ( Appendable out, JavaSrc.Expression asgn, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, int indent, boolean bInsideProcess) throws Exception {
   
-    genExpression(out, asgn, false, bInsideProcess, mdl, nameInnerClassVariable, this.indents.substring(0, 2*indent+1), null);
+    return genExpression(out, asgn, false, bInsideProcess, mdl, nameInnerClassVariable, this.indents.substring(0, 2*indent+1), null);
 //    if(b !=null) { 
 //      b = StringFunctions_B.removeLeadingWhiteSpaces(b);
 //      if(b.length() >0) {                               // it is null if the same variable from z is assigned to this. 
@@ -600,9 +602,10 @@ public class VhdlConv {
         }
       }
       if(exprRight ==null) {
+        //======>>>>
         exprRight = VhdlExprTerm.genExprPartValue(part.get_value(), oper, false, mdl, nameInnerClassVariable);
         //if(varAssign !=null && varAssign == exprLeft.variable() && nrAllOperands ==2)
-        if(exprRight.variable() == exprLeft.variable()) {  // assign of same variable as first check
+        if(exprRight !=null && exprRight.variable() == exprLeft.variable()) {  // assign of same variable as first check
           if(StringFunctions.equals(exprLeft.b, exprRight.b)) { // then check expressions equal, then not necessary in VHDL
             exprRight = null;
           }
@@ -634,6 +637,14 @@ public class VhdlConv {
         assignTerm.append(" ").append(sOpVhdl);
         genTrueFalse(out, exprRight.b, partTrueFalse, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
         if(out != exprLeft.b) { appendLineColumn(out, exprLeft); }
+      }
+      else if(typeVar.etype == VhdlExprTerm.ExprTypeEnum.stdtype && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype) {
+        out.append(exprLeft.b).append(sOpVhdl).append("TO_STDULOGIC(").append(exprRight.b).append(");");
+        appendLineColumn(out, exprLeft);
+      }
+      else if(typeVar.etype == VhdlExprTerm.ExprTypeEnum.bittype && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.stdtype) {
+        out.append(exprLeft.b).append(sOpVhdl).append("TO_BIT(").append(exprRight.b).append(");");
+        appendLineColumn(out, exprLeft);
       }
       else if(typeVar.etype == VhdlExprTerm.ExprTypeEnum.stdVtype && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype) {
         out.append(exprLeft.b).append(sOpVhdl).append("TO_STDLOGICVECTOR(").append(exprRight.b).append(");");
@@ -772,7 +783,7 @@ public class VhdlConv {
           if(refName.equals("time")) {
             return null;                                   // reference time... do not use
           }
-          if(refName.equals("mdl")) {                      // mdl.in.  not using operations supported yet TODO.
+          if(refName.equals("mdl") || refName.equals("thism")) {                      // mdl.in.  not using operations supported yet TODO.
             if(ref2 == null) { return null; }              // mdl.storeData() call of a module opeartion
             refVar = ref2.get_referenceAssociation();
             refName = refVar.get_variableName();

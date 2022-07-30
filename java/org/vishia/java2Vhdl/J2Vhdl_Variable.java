@@ -113,4 +113,7 @@ public class J2Vhdl_Variable {
   }
   
 
+  J2Vhdl_Variable.Location getLocation ( ) { return this.location; }
+  
+  
 }
