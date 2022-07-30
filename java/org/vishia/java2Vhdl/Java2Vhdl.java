@@ -2,14 +2,11 @@ package org.vishia.java2Vhdl;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
-import java.nio.charset.IllegalCharsetNameException;
-import java.nio.charset.UnsupportedCharsetException;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,7 +16,6 @@ import java.util.TreeMap;
 import javax.script.ScriptException;
 
 import org.vishia.fpga.Fpga;
-import org.vishia.fpga.stdmodules.Bit_ifc;
 import org.vishia.java2Vhdl.parseJava.JavaParser;
 import org.vishia.java2Vhdl.parseJava.JavaSrc;
 import org.vishia.util.Arguments;
@@ -38,6 +34,11 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-28 {@link #createModuleInstances()} and {@link #prepareModuleInstance(J2Vhdl_ModuleInstance)} as extra call
+   *   dissolved from {@link #evaluateModuleTypes()}. This is because in the past only the top level has sub modules,
+   *   and now first all sub modules should be gathered, and after all are given, should be prepared.
+   *   Before, the order of creation of the module type and prepare of the instance was related, hence one after another in one operation,
+   *   but this is more a special case.  
    * <li>2022-07-28 {@link #genUsedVhdl(Appendable)} now writes the COMPONENT PORT
    * <li>2022-07-28 {@link #evaluateModuleTypes()} renamed from evaluateModules, now checks annotation <code>(at)FpgaVHDL_MODULE</code>,
    *   then parses Input, Output inner classes in {@link #evaluateVhdlMdlTypes(J2Vhdl_ModuleType)}.
@@ -311,6 +312,9 @@ public class Java2Vhdl {
     this.vhdlCmpnDef = new OutTextPreparer("vhdlCmpnDef", null, "name, vars", tplTexts.get("vhdlCmpnDef"));
     parseAll();                                                              // parse top level and depending classes. 
     evaluateModuleTypes();
+    createModuleInstances();
+    prepareModuleInstances();
+    evaluateCtor();
     gatherAllVariables();
     evaluateInterfacesInModules();
     
@@ -380,6 +384,13 @@ public class Java2Vhdl {
     genProcesses(out);
     wOut.append(out);
     
+    out = new StringBuilder(2400);
+    genAssignments(out);
+    wOut.append(out);
+    
+    
+    
+    
     out = new StringBuilder(2400);                         // generate output assignments in update() operation.
     genOutput(out);
     wOut.append(out);
@@ -440,7 +451,6 @@ public class Java2Vhdl {
     javaSrcToProcess.addAll(this.args.fJavaVhdlSrc);       // add all classes from argument
     int nToplevelFiles = javaSrcToProcess.size();
     //boolean bTopLevel = true;
-    J2Vhdl_ModuleInstance topMdl = null;
     while(javaSrcToProcess.size() >0) {                    // loop over all, also new added files.
       boolean bTopLevel = --nToplevelFiles >=0;            // the first added files are top level
       String pathSrcJava = javaSrcToProcess.remove(0);
@@ -459,10 +469,8 @@ public class Java2Vhdl {
             moduleType= new J2Vhdl_ModuleType(className, parseResult, pclass, bTopLevel);
           }
           this.fdata.idxModuleTypes.put(className, moduleType); // Store in idxModuleTypes with the simple className
-          if(topMdl ==null) { //bTopLevel) {                                      // build an module instance also from the top level file as Module
-            topMdl = moduleType.topInstance;
-            assert(topMdl !=null); // was created in ctor
-            this.fdata.idxModules.put(className, topMdl);
+          if(this.fdata.topInstance ==null) { //bTopLevel) {                                      // build an module instance also from the top level file as Module
+            this.fdata.topInstance = new J2Vhdl_ModuleInstance(className, moduleType, false, null);
           }
           String sAnnot = pclass.get_Annotation();
           if(sAnnot == null || !sAnnot.contains("Fpga.VHDL_MODULE")) {
@@ -575,19 +583,17 @@ public class Java2Vhdl {
               System.out.println("  Module: " + nameSubModule + " : " + sType);
               J2Vhdl_ModuleType typeSubModule = this.fdata.idxModuleTypes.get(sType);
               if(typeSubModule !=null) {
-                J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubModule, typeSubModule, false); //typeSubModule, false);
-                prepareModuleInstance(subModule, mVar);
-                typeSubModule.XXXidxSubModules.put(nameSubModule, subModule);  // register the module instance in the type as used composite sub module
-                this.fdata.idxModules.put(nameSubModule, subModule); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
-                if(mdlt.topInstance !=null) {
-                  mdlt.topInstance.idxAggregatedModules.put(nameSubModule, new J2Vhdl_ModuleInstance.InnerAccess(subModule, null));
+                J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubModule, typeSubModule, false, mVar); //typeSubModule, false);
+                if(mdlt.idxSubModules == null) { 
+                  mdlt.idxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>();
                 }
+                mdlt.idxSubModules.put(nameSubModule, subModule);  // register the module instance in the type as used composite sub module
+                
               } else {
                 VhdlConv.vhdlError("evaluteModules() - J2Vhdl_ModuleType not found :" + sType + " in " + iClassName, mVar);
               }
               
             }
-            evaluateModulesCtor(iClassC);                     // find init(ref, ref...) statement in ctor
           }
           else if( /*mdlt.isTopLevel() &&*/ ( iClassName.equals("Input")
                  || iClassName.equals("Output") )) {          // In/Output signals of the whole FPGA or a VHDL sub module.
@@ -597,7 +603,7 @@ public class Java2Vhdl {
             J2Vhdl_ModuleType inoutType = new J2Vhdl_ModuleType(nameType, null, iclass, false);
             newInnerTypes.add(inoutType);    //instead: this.fdata.idxModuleTypes.put(name, inoutType); //concurrentmodificationException
             prepareIfcOperationsInModuleType(inoutType, inoutType, null, iclass.get_classContent());
-            J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, inoutType, true);  // J2Vhdl_ModuleInstance ToplevelType_input
+            J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, inoutType, true, null);  // J2Vhdl_ModuleInstance ToplevelType_input
             this.fdata.idxModules.put(name, inoutModule);
             searchForIfcAccess(iclass.get_classContent(), inoutType);
           }
@@ -616,6 +622,59 @@ public class Java2Vhdl {
     }
   }
 
+  
+  
+  /**The module instances are built from {@link J2Vhdl_ModuleType#idxSubModules}
+   * firstly from the top module, and then also from all SubModules in modules. 
+   * 
+   */
+  private void createModuleInstances ( ) {
+    J2Vhdl_ModuleInstance mdl = this.fdata.topInstance;
+    this.fdata.idxModules.put(mdl.nameInstance, mdl); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
+    J2Vhdl_ModuleType mdlt = mdl.type;
+    createModuleInstancesRecursively(mdlt, null, 0);
+  }
+  
+  
+  private void createModuleInstancesRecursively ( J2Vhdl_ModuleType mdlt0, String nameMdl0, int recursion ) {
+    if(recursion >3) {
+      VhdlConv.vhdlError("too many sub modules nested", mdlt0.moduleClass);
+    }
+    else if(mdlt0.idxSubModules !=null ){
+      for(Map.Entry<String, J2Vhdl_ModuleInstance> e : mdlt0.idxSubModules.entrySet()) {
+        J2Vhdl_ModuleInstance mdl = e.getValue();
+        final String nameMdl = nameMdl0 == null ? mdl.nameInstance : nameMdl0 + "_" + mdl.nameInstance; 
+        this.fdata.idxModules.put(nameMdl, mdl); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
+        J2Vhdl_ModuleType mdlt1 = mdl.type;
+        createModuleInstancesRecursively(mdlt1, nameMdl, recursion +1);
+      }
+    }
+  }
+  
+  
+  
+  private void prepareModuleInstances ( ) {
+    for(Map.Entry<String, J2Vhdl_ModuleInstance> e : this.fdata.idxModules.entrySet()) {
+      J2Vhdl_ModuleInstance mdl = e.getValue();
+      if(mdl.mVarInit !=null) {       //not for the top level, only for modules which are created with = new Ctor(....)
+        prepareModuleInstance(mdl);
+      }
+      J2Vhdl_ModuleType mdlt = mdl.type;
+      //if(mdlt.idxSubModules !=null) {
+        evaluateModulesCtor(mdlt);                           //evaluates the ctor for any instance of the type.
+      //}                                                   // find init(ref, ref...) statement in ctor
+    }
+  }
+
+  
+  
+  private void evaluateCtor ( ) {
+    for(Map.Entry<String, J2Vhdl_ModuleInstance> e : this.fdata.idxModules.entrySet()) {
+      J2Vhdl_ModuleInstance mdl = e.getValue();
+    }
+  }
+  
+  
   
   
   /**A module class with the (at) {@link Fpga.VHDL_MODULE}. Only the interfaces are evaluated. 
@@ -692,7 +751,8 @@ public class Java2Vhdl {
    * It may contain some <code>this.module.init(ref,...)</code> routines for module aggregations.
    * @param iclass
    */
-  private void evaluateModulesCtor ( JavaSrc.ClassContent iclassC ) {
+  private void evaluateModulesCtor ( J2Vhdl_ModuleType mdlt) {
+    JavaSrc.ClassContent iclassC = mdlt.moduleClass.get_classContent();
     Iterable<JavaSrc.ConstructorDefinition> ctors = iclassC.get_constructorDefinition();
     if(ctors !=null) {
       for(JavaSrc.ConstructorDefinition ctor: ctors) {
@@ -702,8 +762,8 @@ public class Java2Vhdl {
           JavaSrc.Expression operExpr = stmnt.get_Expression();
           if(operExpr !=null) {
             JavaSrc.SimpleValue operVal = operExpr.get_ExprPart().iterator().next().get_value();
-            if(operVal !=null) {
-              JavaSrc.SimpleMethodCall oper = operVal.get_simpleMethodCall();
+            JavaSrc.SimpleMethodCall oper;
+            if(operVal !=null && (oper = operVal.get_simpleMethodCall()) !=null) {
               String nameOper = oper.get_methodName(); 
               if(nameOper.equals("init") || nameOper.startsWith("init_")) {     // the init(ref,...) call in the ctor of Modules
                 JavaSrc.ActualArguments actArgs = oper.get_actualArguments();
@@ -712,8 +772,7 @@ public class Java2Vhdl {
                 String nameSubmodule = refSubModule.getSimpleRefVariable();
                 if(nameSubmodule == null) { VhdlConv.vhdlError("style guide init", oper); }
                 else {
-                  J2Vhdl_ModuleInstance subModule = this.fdata.idxModules.get(nameSubmodule);
-                  //J2Vhdl_ModuleType subModuleType = subModule.type;
+                  J2Vhdl_ModuleInstance subModule = mdlt.idxSubModules.get(nameSubmodule);
                   JavaSrc.ClassDefinition subModuleClass = subModule.type.moduleClass;
                   JavaSrc.ClassContent subModuleClassC = subModuleClass.get_classContent();
                   for(JavaSrc.MethodDefinition operInitType : subModuleClassC.get_methodDefinition()) {
@@ -777,9 +836,10 @@ public class Java2Vhdl {
    * @param module The simple created module only from the ctor {@link Module#Module(String, JavaSrc)}
    * @param mVar This is the parse result from the variable in the <code>class Modules { Type variable = new Type(...)</code>
    */
-  private void prepareModuleInstance ( J2Vhdl_ModuleInstance module, JavaSrc.VariableInstance mVar) {
+  private void prepareModuleInstance ( J2Vhdl_ModuleInstance module) {
 
-    JavaSrc.Expression newExpr = mVar.get_Expression();    //This is the init value of the module, should be new Module(...)
+    JavaSrc.Expression newExpr = module.mVarInit.get_Expression();    //This is the init value of the module, should be new Module(...)
+    module.mVarInit = null;                                // mVarInit no more necessary, garbage it.
     JavaSrc.ExprPart newPart = newExpr.get_ExprPart().iterator().next();  //the only one part of expression is new Module(...)
     JavaSrc.NewObject newObj = newPart.get_value().get_newObject();       //the constructor of new
     JavaSrc.ActualArguments actArgs = newObj.get_actualArguments();       //the actual args are the instance names of the used submodules.
@@ -1296,7 +1356,31 @@ public class Java2Vhdl {
     
   }
 
-  
+  /**Gen all processes for VHDL from all parsed sources.
+   * @param wOut to write
+   * @throws Exception 
+   */
+  void genAssignments(StringBuilder wOut) throws Exception {
+    for(Map.Entry<String, J2Vhdl_ModuleInstance> esrc: this.fdata.idxModules.entrySet()) {          // all sources, instances 
+      J2Vhdl_ModuleInstance mdl = esrc.getValue();
+      J2Vhdl_ModuleType mdlt = mdl.type;
+      String sModule = esrc.getKey();
+      JavaSrc.ClassDefinition theclass = mdl.type.moduleClass;     // get the only one public class of module
+      JavaSrc.ClassContent theClassC = theclass.get_classContent();
+      Iterable<JavaSrc.MethodDefinition> ioper = theClassC.get_methodDefinition(); 
+      if(ioper !=null) for(JavaSrc.MethodDefinition oper : ioper) { // get inner class of public module class  
+        String nameOper = oper.get_name();
+        if(nameOper.equals("step")) {            // it is an inner class for a VHDL RECORD and PROCESS
+          Iterable<JavaSrc.Statement> istmnt = oper.get_methodbody().get_statement();
+          if(istmnt !=null) for(JavaSrc.Statement stmnt : istmnt) {
+            this.vhdlConv.genStmnt(wOut, stmnt, mdl, mdlt.nameType, 0, false);
+//            JavaSrc.Expression expr = stmnt.get_Expression();
+//            expr.get
+          }
+        }
+      }
+    }
+  }
   
   
   /**This is only for the top instance. The update() copies values to the output.
@@ -1307,7 +1391,7 @@ public class Java2Vhdl {
     for(Map.Entry<String, J2Vhdl_ModuleType> esrc:  this.fdata.idxModuleTypes.entrySet()) {
       J2Vhdl_ModuleType src = esrc.getValue();
       if(src.isTopLevel()) {                                 // All toplevel variable
-        J2Vhdl_ModuleInstance topInstance = src.topInstance;
+        J2Vhdl_ModuleInstance topInstance = this.fdata.topInstance;
         this.vhdlConv.setInnerClass(src.nameType, topInstance.nameInstance);
         JavaSrc.ClassDefinition theclass = src.moduleClass;
         JavaSrc.ClassContent theClassC = theclass.get_classContent();

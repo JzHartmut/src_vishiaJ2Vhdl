@@ -18,6 +18,9 @@ public class J2Vhdl_ModuleType {
   
   /**Version, history and license.
    * <ul>
+   * <li>2022-07-30 now the topInstance is in {@link J2Vhdl_FpgaData#topInstance}
+   * <li>2022-07-30 {@link #idxSubModules} is now used again, it is filled per ModulType before {@link J2Vhdl_FpgaData#idxModules} is filled.
+   *   This is because sub modules in modules should be given more as one, each for each module.  
    * <li>2022-07-28 Because of new {@link J2Vhdl_ModuleVhdlType} some fields are moved to the new one. 
    *   It should be near the same as the version 2 times before.
    * <li>2022-07-28 Hartmut enhanced for called included VHDL modules with {@link #inputs}, {@link #outputs} and {@link #idxIOVars}
@@ -47,7 +50,7 @@ public class J2Vhdl_ModuleType {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2022-07-29"; 
+  public final static String sVersion = "2022-07-30"; 
 
   
   static class IfcConstExpr {
@@ -81,12 +84,7 @@ public class J2Vhdl_ModuleType {
   
   final JavaSrc.ClassDefinition moduleClass;
   
-  /**Instance of a top level module. Only for a top level ModuleType an instance is built immediately.
-   * All other Module types are only existent because there is a composite reference which builds the instance,
-   * and this can be more as one instances for the same type, or also the same type used in different module types as sub module.
-   * Then this composite reference is null.
-   */
-  J2Vhdl_ModuleInstance topInstance;
+  boolean isTopLevelType;
   //boolean isTopLevel;
 
   
@@ -106,21 +104,17 @@ public class J2Vhdl_ModuleType {
   
   /**Composite sub modules name as key and the module instance. 
    * Hint: Also stored in */
-  Map<String, J2Vhdl_ModuleInstance> XXXidxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>();
+  Map<String, J2Vhdl_ModuleInstance> idxSubModules = null;
 
 
   public J2Vhdl_ModuleType(String nameType, JavaSrc javaSrc, JavaSrc.ClassDefinition moduleClass, boolean isTopLevel) {
     this.nameType = nameType;
     //this.javaSrc = javaSrc;
     this.moduleClass = moduleClass;
-    if(isTopLevel) {
-      this.topInstance = new J2Vhdl_ModuleInstance(nameType, this, false);
-    } else {
-      this.topInstance = null;
-    }
+    this.isTopLevelType = isTopLevel;
   }
   
-  boolean isTopLevel() { return this.topInstance !=null; }
+  boolean isTopLevel() { return this.isTopLevelType; }
   
   
   

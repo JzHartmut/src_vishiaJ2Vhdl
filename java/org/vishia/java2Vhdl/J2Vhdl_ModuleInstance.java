@@ -3,6 +3,8 @@ package org.vishia.java2Vhdl;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.vishia.java2Vhdl.parseJava.JavaSrc;
+
 
 /**This class contains and prepares data relevant for one module instance in Java to generate VHDL.
  * Representation of a module instance of a javaSrc which is used anywhere from the top level. 
@@ -18,13 +20,16 @@ public class J2Vhdl_ModuleInstance {
   
   final J2Vhdl_ModuleType type;
   
+  JavaSrc.VariableInstance mVarInit;
+  
   /**Associations between the used internal name name as key and the aggregated module. */
   Map<String, J2Vhdl_ModuleInstance.InnerAccess> idxAggregatedModules = new TreeMap<String, J2Vhdl_ModuleInstance.InnerAccess>();
 
-  public J2Vhdl_ModuleInstance(String nameInstance, J2Vhdl_ModuleType type, boolean bInOutModule) {
+  public J2Vhdl_ModuleInstance(String nameInstance, J2Vhdl_ModuleType type, boolean bInOutModule, JavaSrc.VariableInstance mVarInit) {
     this.type = type;
     this.nameInstance = nameInstance;
     this.bInOutModule = bInOutModule;
+    this.mVarInit = mVarInit;
   }
 
   @Override public String toString() { return this.nameInstance + ": "+ this.type.toString(); }

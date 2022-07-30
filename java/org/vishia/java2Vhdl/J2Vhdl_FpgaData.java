@@ -41,7 +41,13 @@ public class J2Vhdl_FpgaData {
   TreeMap<String, J2Vhdl_ConstDef> idxConstDef = new TreeMap<String, J2Vhdl_ConstDef>();
 
 
-  
+  /**Instance of a top level module. Only for a top level ModuleType an instance is built immediately.
+   * All other Module types are only existent because there is a composite reference which builds the instance,
+   * and this can be more as one instances for the same type, or also the same type used in different module types as sub module.
+   * Then this composite reference is null.
+   */
+  J2Vhdl_ModuleInstance topInstance;
+
   
   
 }

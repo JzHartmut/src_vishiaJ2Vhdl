@@ -20,13 +20,13 @@
 
 ============================== java/org/vishia/java2Vhdl/ ==========================================
 2022-05-15 23:42:58  x     J2Vhdl_ConstDef.java                     ::           .396 -0896210286 
-2022-07-17 20:27:54  x     J2Vhdl_FpgaData.java                     ::          1.606  1563641288 
-2022-05-15 23:43:00  x     J2Vhdl_ModuleInstance.java               ::          1.409  0745099488 
-2022-07-29 20:51:26  x     J2Vhdl_ModuleType.java                   ::          5.257 -1397784233 
+2022-07-30 11:35:58  x     J2Vhdl_FpgaData.java                     ::          2.036  1864968451 
+2022-07-30 12:17:14  x     J2Vhdl_ModuleInstance.java               ::          1.562 -0063052374 
+2022-07-30 15:21:27  x     J2Vhdl_ModuleType.java                   ::          5.019 -1335751817 
 2022-07-29 20:32:44  x     J2Vhdl_ModuleVhdlType.java               ::          1.270  0358497576 
 2022-05-20 17:42:14  x     J2Vhdl_Operator.java                     ::          5.312  0498757600 
 2022-07-29 20:54:37  x     J2Vhdl_Variable.java                     ::          3.945  0021154733 
-2022-07-29 20:56:33  x     Java2Vhdl.java                           ::         70.610 -0750261196 
+2022-07-30 15:24:59  x     Java2Vhdl.java                           ::         74.273 -0116539413 
 2022-07-29 20:43:09  x     VhdlConv.java                            ::         63.065 -0090315471 
 2022-07-25 22:44:33  x     VhdlExprTerm.java                        ::         36.310 -0160409512 
 2022-07-29 20:56:50  x     VhdlTemplate.txt                         ::           .503 -1340816012 
