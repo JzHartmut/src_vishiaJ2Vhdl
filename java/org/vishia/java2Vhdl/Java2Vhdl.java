@@ -643,10 +643,12 @@ public class Java2Vhdl {
     else if(mdlt0.idxSubModules !=null ){
       for(Map.Entry<String, J2Vhdl_ModuleInstance> e : mdlt0.idxSubModules.entrySet()) {
         J2Vhdl_ModuleInstance mdl = e.getValue();
-        final String nameMdl = nameMdl0 == null ? mdl.nameInstance : nameMdl0 + "_" + mdl.nameInstance; 
-        this.fdata.idxModules.put(nameMdl, mdl); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
+        if(nameMdl0 != null) {
+          mdl.nameInstance = nameMdl0 + "_" + mdl.nameInstance;  // change the global module instance name in the instance.
+        }
+        this.fdata.idxModules.put(mdl.nameInstance, mdl); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
         J2Vhdl_ModuleType mdlt1 = mdl.type;
-        createModuleInstancesRecursively(mdlt1, nameMdl, recursion +1);
+        createModuleInstancesRecursively(mdlt1, mdl.nameInstance, recursion +1);
       }
     }
   }
@@ -871,7 +873,7 @@ public class Java2Vhdl {
       if(VhdlConv.d.dbgStop) {
         int[] linecol = new int[2];
         String src = aggrArgExpr.getSrcInfo(linecol);
-        if(linecol[0] >= 121 && linecol[0] <= 121 && src.contains("FpgaTop_SpeA.java"))
+        if(linecol[0] >= 35 && linecol[0] <= 35 && src.contains("BlinkingLed_Fpga.java"))
           Debugutil.stop();
       }
       JavaSrc.ExprPart aggrArgExpr1 = aggrArgExpr.get_ExprPart().iterator().next();  //The only one part of the expression
@@ -1370,10 +1372,14 @@ public class Java2Vhdl {
       Iterable<JavaSrc.MethodDefinition> ioper = theClassC.get_methodDefinition(); 
       if(ioper !=null) for(JavaSrc.MethodDefinition oper : ioper) { // get inner class of public module class  
         String nameOper = oper.get_name();
-        if(nameOper.equals("step")) {            // it is an inner class for a VHDL RECORD and PROCESS
+        if(nameOper.equals("prepare") || nameOper.equals("output")) {            // it is an inner class for a VHDL RECORD and PROCESS
           Iterable<JavaSrc.Statement> istmnt = oper.get_methodbody().get_statement();
           if(istmnt !=null) for(JavaSrc.Statement stmnt : istmnt) {
-            this.vhdlConv.genStmnt(wOut, stmnt, mdl, mdlt.nameType, 0, false);
+            if(VhdlConv.d.dbgStop && stmnt.getFilePath().contains("BlinkingLed_Fpga") && stmnt.getLine() >= 77 && stmnt.getLine() <= 77)
+              Debugutil.stop();
+            if(stmnt.isAssignExpr()) {                     // especially not step() and update(), or test operations. 
+              this.vhdlConv.genStmnt(wOut, stmnt, mdl, mdlt.nameType, 0, false);
+            }
 //            JavaSrc.Expression expr = stmnt.get_Expression();
 //            expr.get
           }
@@ -1460,18 +1466,33 @@ public class Java2Vhdl {
       J2Vhdl_ModuleInstance mdl = emdl.getValue();
       String name = emdl.getKey();
       out.append("\n== Module: ").append(name);
-      out.append("\n  localName         | accessed module     {@link J2Vhdl_ModuleInstance#idxAggregatedModules}");
-      out.append("\n--------------------+----------------\n");
-      for(Map.Entry<String, J2Vhdl_ModuleInstance.InnerAccess> eIfc : mdl.idxAggregatedModules.entrySet()) {
-        String innerName = eIfc.getKey();
-        J2Vhdl_ModuleInstance.InnerAccess refMdl = eIfc.getValue();
-        String sType = refMdl !=null && refMdl.mdl !=null ? refMdl.mdl.type.moduleClass.get_classident(): "???refModuleNotFound";
-        String sName = refMdl !=null && refMdl.mdl !=null  ? refMdl.mdl.nameInstance + "." + refMdl.sAccess: "not found";
-        sf.reset();
-        sf.add("  ").add(innerName).pos(20).add("| ").add(sName).add(" : ").add(sType);
-        sf.flushLine("\n");
+      if(mdl.idxAggregatedModules !=null && mdl.idxAggregatedModules.size() >0) {
+        out.append("\n  localName         | accessed module     {@link J2Vhdl_ModuleInstance#idxAggregatedModules}");
+        out.append("\n--------------------+----------------\n");
+        for(Map.Entry<String, J2Vhdl_ModuleInstance.InnerAccess> eIfc : mdl.idxAggregatedModules.entrySet()) {
+          String innerName = eIfc.getKey();
+          J2Vhdl_ModuleInstance.InnerAccess refMdl = eIfc.getValue();
+          String sType = refMdl !=null && refMdl.mdl !=null ? refMdl.mdl.type.moduleClass.get_classident(): "???refModuleNotFound";
+          String sName = refMdl !=null && refMdl.mdl !=null  ? refMdl.mdl.nameInstance + "." + refMdl.sAccess: "not found";
+          sf.reset();
+          sf.add("  ").add(innerName).pos(20).add("| ").add(sName).add(" : ").add(sType);
+          sf.flushLine("\n");
+        }
+        out.append("--------------------+----------------\n");
       }
-      out.append("--------------------+----------------\n");
+      J2Vhdl_ModuleType mdlt = mdl.type;
+      if(mdlt.idxSubModules !=null && mdlt.idxSubModules.size() >0) {
+        out.append("\n  localName         | sub module     {@link J2Vhdl_ModuleType#idxSubModules}");
+        out.append("\n--------------------+----------------\n");
+        for(Map.Entry<String, J2Vhdl_ModuleInstance> e : mdlt.idxSubModules.entrySet()) {
+          String innerName = e.getKey();
+          J2Vhdl_ModuleInstance submdl = e.getValue();
+          sf.reset();
+          sf.add("  ").add(innerName).pos(20).add("| ").add(submdl.nameInstance).add(" : ").add(submdl.type.nameType);
+          sf.flushLine("\n");
+        }
+        out.append("--------------------+----------------\n");
+      }
     }
     //
     out.append("\n== Variables: ");

@@ -31,6 +31,7 @@ public class JavaSrc extends JavaSrc_Base {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-03-29 new {@link Statement#isAssignExpr()}
    * <li>2022-03-29 Hartmut chg: {@link Expression#prep(Appendable)}: It must not return a new Expression, 
    *   instead replace the existing {@link JavaSrc_Base.Expression_Base#exprPart} list with a new list.
    *   Reason: This Expression instance is referred any else where, the new instance is not involved. 
@@ -65,7 +66,7 @@ public class JavaSrc extends JavaSrc_Base {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String version = "2022-03-29"; 
+  public final static String version = "2022-07-30"; 
 
 
   public void postPrepare() throws IOException {
@@ -421,7 +422,7 @@ public class JavaSrc extends JavaSrc_Base {
      * @param dstExpr will be consequently filled. 
      * The {@link #exprPart} instances of this will be reused. It means this is destroyed for further usage.
      * @param log
-     * @throws IOException
+     * @throws IOException only if log is given
      */
     private void prep(List<JavaSrc.ExprPart> partsNew, Appendable log) throws IOException {
       if(this.isPrepared) return;
@@ -542,6 +543,25 @@ public class JavaSrc extends JavaSrc_Base {
       if(log!=null) log.append("\n").append(partsNew.toString());
     }
     
+    
+    
+    /**A normal assign expression with simple assignment in first level.
+     * <pre>
+     * a = b*c;
+     * </pre>
+     * It does not detect any inner assignment such as <code>if ( ( a = b*C) >5) { ....
+     * @return true if it is a simple assign expression.
+     */
+    public boolean isAssignExpr ( ) { 
+      if(!this.isPrepared) {
+        try { prep(null);
+        } catch (IOException e) { throw new RuntimeException("unexpected"); }
+      }
+      for(JavaSrc.ExprPart part : super.exprPart) {
+        if(part.operator.equals("=")) { return true; }
+      }
+      return false; 
+    }
     
     @Override public String toString() {
       return showInfo() + showSrcInfo();
@@ -1492,6 +1512,8 @@ public class JavaSrc extends JavaSrc_Base {
       super.expression = expr;
     }
   
+    
+    public boolean isAssignExpr ( ) { return super.expression !=null && super.expression.isAssignExpr(); }
   
     @Override public String toString ( ) { 
       if(super.expression !=null) return super.expression.toString();

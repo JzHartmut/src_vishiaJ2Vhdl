@@ -13,8 +13,9 @@ import org.vishia.java2Vhdl.parseJava.JavaSrc;
  *
  */
 public class J2Vhdl_ModuleInstance {
-  /**Java instance name in the class Modules */
-  final String nameInstance;
+  
+  /**instance name first local, then changed to the top level global name as stored in {@link J2Vhdl_FpgaData#idxModules} */
+  String nameInstance;
   
   final boolean bInOutModule;
   

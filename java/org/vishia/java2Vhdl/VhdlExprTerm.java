@@ -17,6 +17,8 @@ public final class VhdlExprTerm extends SrcInfo {
   /**Version, history and license.
    * <ul>
    * <li>2022-07-25 in {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
+   *   "smd" as identification for sub module accepted.
+   * <li>2022-07-25 in {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
    *   if 'bTimeMaskVar' then do not search the (non existing) variable, prevent error message, tested on SPE-FPGA.
    *   The statements are commented yet, they were introduced only for tests. 
    * <li>2022-07-17 in  {@link #addOperand(VhdlExprTerm, J2Vhdl_Operator, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, boolean, J2Vhdl_ModuleInstance, String)}:
@@ -477,6 +479,19 @@ public final class VhdlExprTerm extends SrcInfo {
             mdlRef = mdlRef2.mdl;
             sNameRefIfcAccess = mdlRef2.sAccess;             // set if a interface agent is used to access, 
             assert(sNameRefIfcAccess == null || sNameRefIfcAccess.length() >0);  //null if the interface is implemented in the module.
+          }
+          bReferencedModule = true;
+          sNameIclass = "";
+          bRefNextUsed = true;
+        } else if(sRef.equals("smd")) {                    // access to an own sub module
+          final String sRefUse;
+          if(mdlRef.nameInstance ==null || mdlRef.type.isTopLevelType) { sRefUse =  sRefNext; }
+          else { sRefUse =  mdlRef.nameInstance + "_" + sRefNext; }
+          mdlRef = VhdlConv.d.fdata.idxModules.get(sRefUse);
+          if(mdlRef == null) {
+            VhdlConv.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + mdlRef.nameInstance , ref);
+          } else {
+            sNameRefIfcAccess = null;             // set if a interface agent is used to access, 
           }
           bReferencedModule = true;
           sNameIclass = "";
