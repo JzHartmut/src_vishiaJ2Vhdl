@@ -34,6 +34,9 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-01 {@link #evaluateModuleClassCtor(J2Vhdl_ModuleType, org.vishia.java2Vhdl.parseJava.JavaSrc.ClassContent)}
+   *   now called with the type, saves the init routines, and {@link #prepareModuleInstance(J2Vhdl_ModuleInstance)}
+   *   uses also the init operation.  
    * <li>2022-07-28 {@link #genVhdlCall(StringBuilder)}
    * <li>2022-07-28 {@link #createModuleInstances()} and {@link #prepareModuleInstance(J2Vhdl_ModuleInstance)} as extra call
    *   dissolved from {@link #evaluateModuleTypes()}. This is because in the past only the top level has sub modules,
@@ -476,7 +479,7 @@ public class Java2Vhdl {
           }
           this.fdata.idxModuleTypes.put(className, moduleType); // Store in idxModuleTypes with the simple className
           if(this.fdata.topInstance ==null) { //bTopLevel) {                                      // build an module instance also from the top level file as Module
-            this.fdata.topInstance = new J2Vhdl_ModuleInstance(className, moduleType, false, null);
+            this.fdata.topInstance = new J2Vhdl_ModuleInstance(className, moduleType, false, null, null);
           }
           String sAnnot = pclass.get_Annotation();
           if(sAnnot == null || !sAnnot.contains("Fpga.VHDL_MODULE")) {
@@ -589,16 +592,17 @@ public class Java2Vhdl {
               System.out.println("  Module: " + nameSubModule + " : " + sType);
               J2Vhdl_ModuleType typeSubModule = this.fdata.idxModuleTypes.get(sType);
               if(typeSubModule !=null) {
-                if(mdlt.idxSubModules == null) { 
-                  mdlt.idxSubModules = new TreeMap<String, JavaSrc.VariableInstance>();
+                if(mdlt.idxSubModulesVar == null) { 
+                  mdlt.idxSubModulesVar = new TreeMap<String, JavaSrc.VariableInstance>();
                 }
-                mdlt.idxSubModules.put(nameSubModule, mVar);  // register the module instance in the type as used composite sub module
+                mdlt.idxSubModulesVar.put(nameSubModule, mVar);  // register the module instance in the type as used composite sub module
                 
               } else {
                 VhdlConv.vhdlError("evaluteModules() - J2Vhdl_ModuleType not found :" + sType + " in " + iClassName, mVar);
               }
               
             }
+            evaluateModuleClassCtor(mdlt, iClassC);
           }
           else if( /*mdlt.isTopLevel() &&*/ ( iClassName.equals("Input")
                  || iClassName.equals("Output") )) {          // In/Output signals of the whole FPGA or a VHDL sub module.
@@ -608,7 +612,7 @@ public class Java2Vhdl {
             J2Vhdl_ModuleType inoutType = new J2Vhdl_ModuleType(nameType, null, iclass, false);
             newInnerTypes.add(inoutType);    //instead: this.fdata.idxModuleTypes.put(name, inoutType); //concurrentmodificationException
             prepareIfcOperationsInModuleType(inoutType, inoutType, null, iclass.get_classContent());
-            J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, inoutType, true, null);  // J2Vhdl_ModuleInstance ToplevelType_input
+            J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, inoutType, true, null, null);  // J2Vhdl_ModuleInstance ToplevelType_input
             this.fdata.idxModules.put(name, inoutModule);
             searchForIfcAccess(iclass.get_classContent(), inoutType);
           }
@@ -629,6 +633,43 @@ public class Java2Vhdl {
 
   
   
+  /**Evaluates the ctor of a Module inner class. It searches for mdl.init(...)
+   * @param mdlt the type where the inner class "Module" is part of. 
+   * @param iclassC from the inner class "Module"
+   */
+  private void evaluateModuleClassCtor ( J2Vhdl_ModuleType mdlt, JavaSrc.ClassContent iclassC) {
+    Iterable<JavaSrc.ConstructorDefinition> ctors = iclassC.get_constructorDefinition();
+    if(ctors !=null) {
+      for(JavaSrc.ConstructorDefinition ctor: ctors) {
+        
+        Iterable<JavaSrc.Statement> stmnts = ctor.get_statement();
+        if(stmnts !=null) for(JavaSrc.Statement stmnt : stmnts) {
+          JavaSrc.Expression operExpr = stmnt.get_Expression();
+          if(operExpr !=null) {
+            JavaSrc.SimpleValue operVal = operExpr.get_ExprPart().iterator().next().get_value();
+            JavaSrc.SimpleMethodCall oper;
+            if(operVal !=null && (oper = operVal.get_simpleMethodCall()) !=null) {
+              String nameOper = oper.get_methodName(); 
+              if(nameOper.equals("init") || nameOper.startsWith("init_")) {     // the init(ref,...) call in the ctor of Modules
+                JavaSrc.Reference refSubModule = operVal.get_reference();
+                String nameSubmodule = refSubModule.getSimpleRefVariable();
+                if(nameSubmodule == null) { VhdlConv.vhdlError("style guide init", oper); }
+                else {
+                  if(mdlt.idxSubModulesInit == null) { 
+                    mdlt.idxSubModulesInit = new TreeMap<String, JavaSrc.SimpleMethodCall>();
+                  }
+                  mdlt.idxSubModulesInit.put(nameSubmodule, oper);  // register the module instance in the type as used composite sub module
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+
+
   /**The module instances are built from {@link J2Vhdl_ModuleType#idxSubModules}
    * firstly from the top module, and then also from all SubModules in modules. 
    * 
@@ -645,15 +686,16 @@ public class Java2Vhdl {
     if(recursion >3) {
       VhdlConv.vhdlError("too many sub modules nested", mdlt0.moduleClass);
     }
-    else if(mdlt0.idxSubModules !=null ){
-      for(Map.Entry<String, JavaSrc.VariableInstance> e : mdlt0.idxSubModules.entrySet()) {
+    else if(mdlt0.idxSubModulesVar !=null ){
+      for(Map.Entry<String, JavaSrc.VariableInstance> e : mdlt0.idxSubModulesVar.entrySet()) {
         final String innerNameSubmdl = e.getKey();
         JavaSrc.VariableInstance mVar = e.getValue();
         final JavaSrc.Type type = mVar.get_type();
         final String sType = type.get_name();          // search the appropriate parsed source.java result
         J2Vhdl_ModuleType typeSubmdl = this.fdata.idxModuleTypes.get(sType);
         final String nameSubmdl = nameMdl0 == null ? innerNameSubmdl : nameMdl0 + "_" + innerNameSubmdl;
-        J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubmdl, typeSubmdl, false, mVar); //typeSubModule, false);
+        JavaSrc.SimpleMethodCall operInit = mdlt0.idxSubModulesInit == null ? null : mdlt0.idxSubModulesInit.get(innerNameSubmdl); //may existing or not
+        J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubmdl, typeSubmdl, false, mVar, operInit); //typeSubModule, false);
         if(mdl0.idxSubModules == null) { mdl0.idxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>(); }
         mdl0.idxSubModules.put(innerNameSubmdl, subModule);
         this.fdata.idxModules.put(subModule.nameInstance, subModule); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
@@ -667,11 +709,11 @@ public class Java2Vhdl {
   private void prepareModuleInstances ( ) {
     for(Map.Entry<String, J2Vhdl_ModuleInstance> e : this.fdata.idxModules.entrySet()) {
       J2Vhdl_ModuleInstance mdl = e.getValue();
+      if(mdl.nameInstance.equals("data"))
+        Debugutil.stop();
       if(mdl.mVarInit !=null) {       //not for the top level, only for modules which are created with = new Ctor(....)
-        prepareModuleInstance(mdl);
+        prepareModuleInstance(mdl);   // it uses the variable which creates the module. 
       }
-      evaluateModulesCtor(mdl);                            //evaluates the ctor for any instance of the type.
-      //                                                   // find init(ref, ref...) statement in ctor
     }
   }
 
@@ -682,7 +724,6 @@ public class Java2Vhdl {
       J2Vhdl_ModuleInstance mdl = e.getValue();
     }
   }
-  
   
   
   
@@ -760,7 +801,7 @@ public class Java2Vhdl {
    * It may contain some <code>this.module.init(ref,...)</code> routines for module aggregations.
    * @param iclass
    */
-  private void evaluateModulesCtor ( J2Vhdl_ModuleInstance mdl) {
+  private void XXXevaluateModulesCtor ( J2Vhdl_ModuleInstance mdl) {
     JavaSrc.ClassContent iclassC = mdl.type.moduleClass.get_classContent();
     Iterable<JavaSrc.ConstructorDefinition> ctors = iclassC.get_constructorDefinition();
     if(ctors !=null) {
@@ -864,11 +905,29 @@ public class Java2Vhdl {
           break;
         }
       }
-      if(formalArgs == null) { VhdlConv.vhdlError("constructor in submodule not found", newObj); }
+      if(formalArgs == null) { 
+        VhdlConv.vhdlError("constructor in submodule not found", newObj); 
+      }
       else {
-        if(module.nameInstance.equals("txSpe"))
+        if(module.nameInstance.equals("data"))
           Debugutil.stop();
         associateActualWithTypeArgumentRefs(module, actArgs, formalArgs);
+      }
+    }
+    if(module.operInit !=null) {
+      JavaSrc.SimpleMethodCall operInit = module.operInit;
+      module.operInit = null;   //garbage it.
+      String nameOper = operInit.get_methodName();
+      actArgs = operInit.get_actualArguments();
+      int zArgs = actArgs.getSize_Expression();
+      JavaSrc.ClassDefinition subModuleClass = module.type.moduleClass;
+      JavaSrc.ClassContent subModuleClassC = subModuleClass.get_classContent();
+      for(JavaSrc.MethodDefinition operInitType : subModuleClassC.get_methodDefinition()) {
+        if(operInitType.get_name().equals(nameOper)) {  //the same init(...) or init_xy(...) in the sub modules class
+          if(operInitType.getSize_argument() == zArgs) { //distinguish between init operations because of number of arguments ...
+            associateActualWithTypeArgumentRefs(module, actArgs, operInitType.get_argument().iterator());
+          }
+        }
       }
     }
   }

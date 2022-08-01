@@ -786,6 +786,111 @@ include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBl
 
 This class is not used for the VHDL generation, but used for test. It is explained in the next main chapter. 
 
+
+
+=== Instantiate of entities from other VHDL files (PORT MAP)
+
+Till now this description suggest using only one VHDL file. 
+There are some modules, each module is a java class, but all modules are flattened in the only one generated VHDL file. 
+
+But VHDL knows by itself also a hierarchy of modules. 
+
+==== How to use other VHDL files
+
+To include another module (as submodule) respectively instantiate another entity in the own VHDL file (wording of some VHDL descriptions) two steps are necessary:
+
+**Definition of the entity header**
+
+Written after `ARCHITECTURE` and before `BEGIN`, in the definition part:
+
+----
+COMPONENT ExmInclVhdl
+PORT (
+  Clock: IN STD_LOGIC ;
+  ClockEn: IN STD_LOGIC ;
+  Reset: IN STD_LOGIC ;
+  WE: IN STD_LOGIC ;
+  Address: IN STD_LOGIC_VECTOR(6 DOWNTO 0) ;
+  Data: IN STD_LOGIC_VECTOR(7 DOWNTO 0) ;
+  Q: OUT STD_LOGIC_VECTOR(7 DOWNTO 0) 
+ );
+END COMPONENT;
+----
+
+This definition should be the same as the `PORT` definition in the used VHDL file, 
+which should be present on routine process in the adequate FPGA design tool.
+A system of header files as in {cp} which contains the declarations and data definitions for both, 
+the implementation (own compilation unit) and usage (other compilation unit) seems to be not present in VHDL. 
+
+**Instantiation of the other VHDL module as sub module**
+
+Written after `BEGIN`, in the implementaion part:
+
+----
+ct_Ram_vhdlMdl: ExmInclVhdl
+Port MAP( 
+  Address =>   ct_Q.ctLow(6 DOWNTO 0) ,
+  Clock =>  TO_STDULOGIC(clk) ,
+  ClockEn =>  TO_STDULOGIC(ce_Q.ce) ,
+  Data =>   ct_Q.ctLow(8 DOWNTO 1) ,
+  Reset =>  TO_STDULOGIC(res_Q.res) ,
+  WE =>   ce_Q.ct(0) ,
+  Q => ct_Ram.ramData  
+ );
+----
+
+You can instantiate the same entity (VHDL module) more as one time. 
+First a identifier of the instance, after colon the type identifier, 
+following from the assignments of signals of the PORT of the instantiated module to internal signals of this module.
+All input signals should be associated, possible as shown in the example with type conversion and bit selection.
+
+The outputs should be assigned to only one type matching variable. 
+It is not necessary to assign (use) all outputs.
+
+The access to the output of the module is done with access to this assigned variables.
+
+Note, that this are not '__assignments__' but signal connections. 
+For the FPGA content it is the same to access the connected variable as the element in the instantiated VHDL module. 
+This is other than calling a funtion in C where this are often move machince code operations. 
+
+==== User stories for modularity with VHDL files
+
+The Java2Vhdl translator allows modularity in Java and generates only one VHDL file as input for place and route.
+This is sufficient. But some reasons may be given to include more VHDL files.
+
+**VHDL file describes specifics in the FPGA such as RAM, controller part**
+
+It is familiar to select specific features of a given FPGA, for example a RAM (as in the example above),
+or other special functionality. This is often tool guided, and produces after selection of the feature a VHDL file.
+The content of this VHDL file is not intended for further editing, but it is the input for the place and route.
+Now such VHDL files should be included in the Java2Vhdl created ones.
+
+
+**Using given solutions (legacy, from other colleagues or departments)** 
+
+Using the Java2Vhdl approach is a specific edition. 
+It presumes experience with the Java language, and also being open to this new idea.
+It cannot presumed, that all colleagues and other departments does the same. 
+The common commitment is VHDL, traditional and proven.
+A project can be elaborately, so that the work of many people should match together. 
+
+Hence using other work based on VHDL is the first approach. 
+Any department produces a VHDL input for modules, and the root VHDL for the FPGA uses it.
+How to produce this VHDL input, using Java2Vhdl, any other tool or manual written, is not important. 
+
+
+==== Module (class) in Java for given VHDL files
+
+The first question is, it should be able to simulate in Java, 
+whereas the simulation may not map the full functionality of the given Vhdl file, 
+only the interface (black box thinking) should be fulfilled.
+
+Following the example with the RAM, the class as representer for the given VHDL file starts as following:
+
+----
+//file: /exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/ExmInclVhdl.java
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/ExmInclVhdl.java[tag=classdef]
+----
  
 [#JavaSrcTest]
 == The example Blinking LED, view to Java sources in respect to test on Java level

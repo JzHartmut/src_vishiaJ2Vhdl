@@ -41,6 +41,9 @@ if not exist java_vishiaBase mklink /J java_vishiaBase ..\..\..\Java\cmpnJava_vi
 REM The vishiaFpga should be stored here as original
 if not exist vishiaFpga mklink /J vishiaFpga XXX-path-if-not-exist
 
+REM The exmpl_vishiaJ2Vhdl_BlinkingLed is necessary here for generate the documentation (link to example code snippets):
+if not exist exmpl_vishiaJ2Vhdl_BlinkingLed mklink /J exmpl_vishiaJ2Vhdl_BlinkingLed ..\..\Example_J2Vhdl_BlinkingLed\src\exmpl_vishiaJ2Vhdl_BlinkingLed
+
 dir
 if not "%1" == "NOPAUSE" pause
 

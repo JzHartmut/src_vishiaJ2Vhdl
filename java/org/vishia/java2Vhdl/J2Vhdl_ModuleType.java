@@ -18,8 +18,11 @@ public class J2Vhdl_ModuleType {
   
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-01 new {@link #idxSubModulesInit}. {@link #idxSubModulesVar} renamed from idxSubModules.
+   *   The initialization from the instantiation (var) and from init should be adequate. 
+   *   Both is now handled together in {@link Java2Vhdl#createModuleInstancesRecursively(J2Vhdl_ModuleInstance, String, int)}. 
    * <li>2022-07-30 now the topInstance is in {@link J2Vhdl_FpgaData#topInstance}
-   * <li>2022-07-30 {@link #idxSubModules} is now used again, it is filled per ModulType before {@link J2Vhdl_FpgaData#idxModules} is filled.
+   * <li>2022-07-30 {@link #idxSubModulesVar} is now used again, it is filled per ModulType before {@link J2Vhdl_FpgaData#idxModules} is filled.
    *   This is because sub modules in modules should be given more as one, each for each module.  
    * <li>2022-07-28 Because of new {@link J2Vhdl_ModuleVhdlType} some fields are moved to the new one. 
    *   It should be near the same as the version 2 times before.
@@ -50,7 +53,7 @@ public class J2Vhdl_ModuleType {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2022-07-30"; 
+  public final static String sVersion = "2022-08-01"; 
 
   
   static class IfcConstExpr {
@@ -104,8 +107,14 @@ public class J2Vhdl_ModuleType {
   
   /**Composite sub modules name as key and the variable with type to initialize. 
    * This is temporary till {@link J2Vhdl_ModuleInstance#idxSubModules} is created. */
-  Map<String, JavaSrc.VariableInstance> idxSubModules = null;
+  Map<String, JavaSrc.VariableInstance> idxSubModulesVar = null;
 
+  /**Composite sub modules name as key and the init operation to initialize. 
+   * This is temporary till {@link J2Vhdl_ModuleInstance#idxSubModules} is created. */
+  Map<String, JavaSrc.SimpleMethodCall> idxSubModulesInit = null;
+
+  
+  
 
   public J2Vhdl_ModuleType(String nameType, JavaSrc javaSrc, JavaSrc.ClassDefinition moduleClass, boolean isTopLevel) {
     this.nameType = nameType;
