@@ -20,7 +20,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * <li>2022-07-28 Access to Fpga.clk as fix dirty solution.
    * <li>2022-07-28 now beside "mdl" now also "thism" for access to the module class (environment class) 
    * <li>2022-07-25 in {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
-   *   "smd" as identification for sub module accepted.
+   *   "modules" (firstly "smd") as identification for sub module accepted.
    * <li>2022-07-25 in {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence)}:
    *   if 'bTimeMaskVar' then do not search the (non existing) variable, prevent error message, tested on SPE-FPGA.
    *   The statements are commented yet, they were introduced only for tests. 
@@ -440,7 +440,7 @@ public final class VhdlExprTerm extends SrcInfo {
       if(VhdlConv.d.dbgStop) {
         int[] lineColumn = new int[2];
         String file = val.getSrcInfo(lineColumn); //BlinkingLed_Fpga
-        dbgStop = file.contains("BlinkingLedCt.java") && lineColumn[0] >= 176 && lineColumn[0] <= 176;
+        dbgStop = file.contains("BlinkingLed_Fpga.java") && lineColumn[0] >= 54 && lineColumn[0] <= 54;
       }
       if(dbgStop){
         Debugutil.stop();
@@ -483,11 +483,11 @@ public final class VhdlExprTerm extends SrcInfo {
         } else if(sRef.equals("z")) {
           sNameIclass = nameIclassArg;
           bReferencedModule = true;
-        } else if(sRef.equals("mdl") || sRef.equals("thism")) {
+        } else if(sRef.equals("mdl") || sRef.equals("thism")) {  //the own module
           sNameIclass = null;             // maybe null if operation of the module is called.
           bReferencedModule = true;
           //bRefNextUsed = true;
-        } else if(sRef.equals("vhdlMdl")) {
+        } else if(sRef.equals("vhdlMdl")) {                // the associated VHDL external module to a VHDL_CALL sub class
           mdlRef = mdlRef.idxSubModules.get(nameIclassArg);
           sNameIclass = null;             // maybe null if operation of the module is called.
           bReferencedModule = true;
@@ -504,7 +504,7 @@ public final class VhdlExprTerm extends SrcInfo {
           bReferencedModule = true;
           sNameIclass = "";
           bRefNextUsed = true;
-        } else if(sRef.equals("smd")) {                    // access to an own sub module
+        } else if(sRef.equals("modules")) {                // access to an own sub modules
           final String sRefUse;
           if(mdlRef.nameInstance ==null || mdlRef.type.isTopLevelType) { sRefUse =  sRefNext; }
           else { sRefUse =  mdlRef.nameInstance + "_" + sRefNext; }

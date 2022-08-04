@@ -33,9 +33,13 @@ END COMPONENT;
 
 === vhdlCmpnCall
 
+<:if:preAssignments>
+-- Assignments for VHDL instance inputs:
+<:for:asg:preAssignments><&asg>
+<.for><.if>
 <&name>: <&typeVhdl>
-Port MAP( 
+PORT MAP( 
 <:for:var:vars>  <&var.name> => <&var.assgn> <:if:var_next>,<.if>
 <.for> <: >
-);
+);  --PORT MAP <&typeVhdl>
 

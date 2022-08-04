@@ -34,6 +34,7 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-04 in {@link #genVhdlCall(StringBuilder)}: Now also generates statements to prepare the inputs.
    * <li>2022-08-01 {@link #evaluateModuleClassCtor(J2Vhdl_ModuleType, org.vishia.java2Vhdl.parseJava.JavaSrc.ClassContent)}
    *   now called with the type, saves the init routines, and {@link #prepareModuleInstance(J2Vhdl_ModuleInstance)}
    *   uses also the init operation.  
@@ -314,7 +315,7 @@ public class Java2Vhdl {
     this.vhdlAfterPort = new OutTextPreparer("vhdlAfterPort", null, "fpgaName", tplTexts.get("vhdlAfterPort"));
     this.vhdlConst = new OutTextPreparer("vhdlConst", null, "name, type, value", tplTexts.get("vhdlConst"));
     this.vhdlCmpnDef = new OutTextPreparer("vhdlCmpnDef", null, "name, vars", tplTexts.get("vhdlCmpnDef"));
-    this.vhdlCmpnCall = new OutTextPreparer("vhdlCmpnCall", null, "name, typeVhdl, vars", tplTexts.get("vhdlCmpnCall"));
+    this.vhdlCmpnCall = new OutTextPreparer("vhdlCmpnCall", null, "name, typeVhdl, preAssignments, vars", tplTexts.get("vhdlCmpnCall"));
     parseAll();                                                              // parse top level and depending classes. 
     evaluateModuleTypes();
     createModuleInstances();
@@ -1458,12 +1459,14 @@ public class Java2Vhdl {
               else {
                 String ctorName = ctor.get_constructor();
                 List<J2Vhdl_ModuleVhdlType.Assgn> assignments = new LinkedList<J2Vhdl_ModuleVhdlType.Assgn>();
+                boolean bStepSeen = false;                 // before step() there may be assignments
+                List<StringBuilder> preAssignments = null;
                 for(JavaSrc.Statement stmnt: ctor.get_statement()) {             // all first level statements in the ctor
                   //CharSequence txt = this.vhdlConv.genStatement(stmnt, 1);
                   JavaSrc.Expression expr = stmnt.get_Expression();
                   if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
                     
-                    StringBuilder sAssg = new StringBuilder(100);
+                    StringBuilder sAssg = new StringBuilder(100);  // for one line assignment
                     VhdlExprTerm term = this.vhdlConv.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=");
                     int sep = sAssg.indexOf("<=");
                     int sepe = sAssg.indexOf(";");
@@ -1471,19 +1474,34 @@ public class Java2Vhdl {
                     if(sep >=0) {
                       if(term.varCurrent_.getLocation() == J2Vhdl_Variable.Location.input) {
                         assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(0, sep).trim(), sAssg.substring(sep+2, sepe));
+                      } else if(!bStepSeen) {
+                        if(preAssignments == null) { preAssignments = new LinkedList<StringBuilder>(); }
+                        preAssignments.add(sAssg);         // assignment before vhdl instance
+                        assgn = null;                      // not for the vhdl instance
                       } else {   //not output, output is right side of expression.
                         assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(sep+2, sepe).trim(), sAssg.substring(0, sep));
                       }
                     } else {
                       assgn = new J2Vhdl_ModuleVhdlType.Assgn("??", sAssg.toString());
                     }
-                    assignments.add(assgn);
+                    if(assgn !=null) {
+                      assignments.add(assgn);
+                    }
+                  } else if(!bStepSeen && expr !=null && expr.getSize_ExprPart() ==1) {
+                    JavaSrc.ExprPart part0 = expr.get_ExprPart().iterator().next();
+                    JavaSrc.SimpleValue val0= part0.get_value();
+                    JavaSrc.SimpleMethodCall oper0;
+                    if(val0 !=null && (oper0 = val0.get_simpleMethodCall()) !=null) {
+                      String nameOper = oper0.get_methodName();
+                      bStepSeen |= nameOper.equals("step");
+                    }
                   }
                 } 
                 OutTextPreparer.DataTextPreparer args = this.vhdlCmpnCall.createArgumentDataObj();
                 args.setArgument("name", nameVhdlMdl);
                 args.setArgument("typeVhdl", vhdlMdlType);
                 args.setArgument("vars", assignments);
+                args.setArgument("preAssignments", preAssignments);
                 this.vhdlCmpnCall.exec(wOut, args);
               }
             }
@@ -1533,7 +1551,9 @@ public class Java2Vhdl {
             if(VhdlConv.d.dbgStop && stmnt.getFilePath().contains("BlinkingLed_Fpga") && stmnt.getLine() >= 77 && stmnt.getLine() <= 77)
               Debugutil.stop();
             if(stmnt.isAssignExpr()) {                     // especially not step() and update(), or test operations. 
-              this.vhdlConv.genStmnt(wOut, stmnt, mdl, mdlt.nameType, 0, false);
+              //next line is faulty if a Process is created on top level, test with null is proper.
+              //commented: this.vhdlConv.genStmnt(wOut, stmnt, mdl, mdlt.nameType, 0, false);
+              this.vhdlConv.genStmnt(wOut, stmnt, mdl, null, 0, false);
             }
 //            JavaSrc.Expression expr = stmnt.get_Expression();
 //            expr.get
