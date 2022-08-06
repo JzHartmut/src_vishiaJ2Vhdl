@@ -8,7 +8,7 @@
 2022-02-20 23:54:36  x     Java2Vhdl_StyleGuide.adoc                ::         10.011  1529218166 
 2022-06-04 18:00:55  x     Java2Vhdl_TestOutput.adoc                ::           .329  0581820779 
 2022-08-01 10:57:52  x     Java2Vhdl_ToolsAndExample.adoc           ::         57.295  1745315750 
-2022-08-06 11:18:00  x     Java2Vhdl_TranslatorInternals.adoc       ::          7.660  0781743136 
+2022-08-06 17:31:21  x     Java2Vhdl_TranslatorInternals.adoc       ::          8.385  1735827005 
 2022-03-26 12:00:06  x     Vhdl.zip                                 ::         12.808 -0796044082 
 2022-05-09 16:48:00  x     my.css                                   ::         30.044  1327990975 
 
@@ -26,9 +26,9 @@
 2022-07-30 21:39:53  x     J2Vhdl_ModuleVhdlType.java               ::          1.452  1344928632 
 2022-05-20 17:42:14  x     J2Vhdl_Operator.java                     ::          5.312  0498757600 
 2022-07-30 23:13:14  x     J2Vhdl_Variable.java                     ::          4.020 -1256450914 
-2022-08-06 11:07:42  x     Java2Vhdl.java                           ::         85.520 -0233783345 
-2022-08-06 11:08:49  x     VhdlConv.java                            ::         64.131 -0617922768 
-2022-08-06 11:10:45  x     VhdlExprTerm.java                        ::         39.974 -0181501809 
+2022-08-06 16:55:55  x     Java2Vhdl.java                           ::         85.526 -1144844731 
+2022-08-06 17:40:54  x     VhdlConv.java                            ::         65.543  2143614204 
+2022-08-06 17:39:31  x     VhdlExprTerm.java                        ::         45.917 -1177834777 
 2022-08-04 11:52:15  x     VhdlTemplate.txt                         ::           .765 -1693269067 
 
 ============================== java/org/vishia/java2Vhdl/parseJava/ ================================

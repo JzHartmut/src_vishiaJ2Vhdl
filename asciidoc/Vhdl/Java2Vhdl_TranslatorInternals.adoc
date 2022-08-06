@@ -173,5 +173,28 @@ Here is more to document, TODO
 === Operation call schema
 
 ----
-  
+  VhdlConv.genStmnt()
+   +-> genAssignment()
+   |   +-> genExpression()
+   +-> genCondition()
+       +-> genExpression()
+            +-> genExpression()  //some more invocations
+----
+
+
+----
+  VhdlConv:genExpression()
+   +-> genAssignInExpression()
+   |    +-> genTrueFalseValue()
+   |    +-> adjustType()
+   +-- exprLeft: VhdlExprTerm
+   |    +-> addOperand(operator, exprRight % part)
+   |         *dbgStop
+   |         +-- exprRight = genExprPartValue()
+   |         |                +-> addPartValue()
+   |         +-> addPartValue() //for the first left term
+   |         |    +-> genSimpleValue()
+   |         +-> adjustType()   //handle type conversions left and right
+   +-> genTrueFalseValue()
+        +-> adjustType()
 ----

@@ -21,6 +21,7 @@ public class VhdlConv {
   
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-06 see comment in {@link VhdlExprTerm}, type conversions. 
    * <li>2022-07-06 in {@link #genAssignment(Appendable, VhdlExprTerm, J2Vhdl_Operator, VhdlExprTerm, ExprPart, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPartTrueFalse, J2Vhdl_ModuleInstance, String, CharSequence, boolean)}:
    *   now uses TO_BIT and TO_STDULOGIC instead IF and WHEN for the assignments, important for assign to called Vhdl
    * <li>2022-07-06 Now supports char as STD_LOGIC. 
@@ -287,7 +288,7 @@ public class VhdlConv {
   
   VhdlExprTerm genAssignment ( Appendable out, JavaSrc.Expression asgn, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, int indent, boolean bInsideProcess) throws Exception {
   
-    return genExpression(out, asgn, false, bInsideProcess, mdl, nameInnerClassVariable, this.indents.substring(0, 2*indent+1), null);
+    return genExpression(out, asgn, false, bInsideProcess, mdl, nameInnerClassVariable, this.indents.substring(0, 2*indent+1), null, null);
 //    if(b !=null) { 
 //      b = StringFunctions_B.removeLeadingWhiteSpaces(b);
 //      if(b.length() >0) {                               // it is null if the same variable from z is assigned to this. 
@@ -300,7 +301,7 @@ public class VhdlConv {
   private void genCondition(Appendable out, JavaSrc.Expression cond, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
     Debugutil.stop();
     //JavaSrc.SimpleValue value = cond.get_value();
-    genExpression(out, cond, true, false, mdl, nameInnerClassVariable, null, null);
+    genExpression(out, cond, true, false, mdl, nameInnerClassVariable, null, null, null);
   }
 
 
@@ -333,11 +334,14 @@ public class VhdlConv {
    * @param genBool true if the expression is necessary in a VHDL boolean environment (IF)
    * @param indent
    * @param assignTerm null or the left assign expression if called in an assign context. Then this expression is the right side expression to assign.
+   * @param assignType used in case of truefalseExpr, type of the left variable.
    * @return The built expression with type information. 
    * @throws Exception 
    */
   public VhdlExprTerm genExpression ( Appendable out, JavaSrc.Expression exprRpn, boolean genBool, boolean bInsideProcess
-      , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, CharSequence indent, CharSequence assignTerm) throws Exception {
+      , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
+      , CharSequence indent, CharSequence assignTerm, VhdlExprTerm.ExprType assignType) 
+      throws Exception {
     //
     VhdlExprTerm exprLeft = null;                          // left side expression segment from stack popped.
     try {
@@ -407,10 +411,10 @@ public class VhdlConv {
         if(opPreced.opBool.bAssign) {                      // assignment
           bLastWasAssignment = true;
           //
-          //>>>>>>>
+          //======>>>>>>>
           if(bStopExprPart)
             Debugutil.stop();
-          genAssignment(out, exprLeft, opPreced, exprRight, part, partTrueFalse, mdl, nameInnerClassVariable, indent, bInsideProcess);
+          genAssignInExpression(out, exprLeft, opPreced, exprRight, part, partTrueFalse, mdl, nameInnerClassVariable, indent, bInsideProcess);
           partTrueFalse = null;
           bUseTrueFalse = false;
         }
@@ -420,7 +424,7 @@ public class VhdlConv {
           }
           bLastWasAssignment = false;                      // add operator operand
           //
-          //>>>>>>>
+          //======>>>>>>>
           if(bStopExprPart)
             Debugutil.stop();
           boolean bOk = exprLeft.addOperand(exprRight, opPreced, part, genBool, mdl, nameInnerClassVariable); 
@@ -446,9 +450,11 @@ public class VhdlConv {
         }
         
         if(bTrueFalse) {
-          String cond = exprLeft.b.toString();
-          exprLeft.b.setLength(0);
-          genTrueFalse(exprLeft.b, cond, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
+          String cond = exprLeft.b.toString();             // The exprLeft contains till now the condition term. 
+          exprLeft.b.setLength(0);                         // clear exprLeft, use as destination
+          VhdlExprTerm.ExprType assignType1 = assignType !=null ? assignType : exprLeft.exprType_;
+          genTrueFalse(exprLeft.b, assignType1, cond, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
+          exprLeft.exprType_.set(assignType1);             // The expression represents the trueFalseValue, with this type.   
           if(out !=null) { out.append(indent).append(exprLeft.b); }
         }
         else {
@@ -474,32 +480,42 @@ public class VhdlConv {
     
   
   
-  private void genTrueFalse ( Appendable out, CharSequence cond, JavaSrc.ExprPart partTrueFalse_a
+  private void genTrueFalse ( Appendable out, VhdlExprTerm.ExprType typeLeft, CharSequence cond, JavaSrc.ExprPart partTrueFalse_a
       , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
       , boolean bInsideProcess, CharSequence indent
       , CharSequence assignTerm
       ) throws Exception {
     JavaSrc.ExprPartTrueFalse partTrueFalse = (JavaSrc.ExprPartTrueFalse) partTrueFalse_a;
+    StringBuilder sExprTrue = new StringBuilder();        // Note: assignTerm is the left side assignment variable with assign operator
+    StringBuilder sExprFalse = new StringBuilder();
+    VhdlExprTerm exprTrue = genExpression(null, partTrueFalse.get_trueExpr(), false, bInsideProcess, mdl, nameInnerClassVariable, null, null, typeLeft);
+    VhdlExprTerm exprFalse = genExpression(null, partTrueFalse.get_falseExpr(), false, bInsideProcess, mdl, nameInnerClassVariable, null, null, typeLeft);
+    if(!VhdlExprTerm.adjustType(sExprTrue, exprTrue.b, typeLeft, exprTrue.exprType_)) {
+      VhdlConv.vhdlError("non proper types in expression, ", partTrueFalse);
+    }
+    if(!VhdlExprTerm.adjustType(sExprFalse, exprFalse.b, typeLeft, exprFalse.exprType_)) {
+      VhdlConv.vhdlError("non proper types in expression, ", partTrueFalse);
+    }
+    //
     if(bInsideProcess) {                                   // inside of a process:
-      StringBuilder exprTrue = new StringBuilder();        // Note: assignTerm is the left side assignment variable with assign operator
-      genExpression(exprTrue, partTrueFalse.get_trueExpr(), false, true, mdl, nameInnerClassVariable, indent, assignTerm);
-      StringBuilder exprFalse = new StringBuilder();
-      genExpression(exprFalse, partTrueFalse.get_falseExpr(), false, true, mdl, nameInnerClassVariable, indent, assignTerm);
+      //TODO use exprTrue, exprFalse but there is a nested problem, not evaluated yet.
+      sExprTrue = new StringBuilder();        // Note: assignTerm is the left side assignment variable with assign operator
+      sExprFalse = new StringBuilder();
+      genExpression(sExprTrue, partTrueFalse.get_trueExpr(), false, true, mdl, nameInnerClassVariable, indent, assignTerm, typeLeft);
+      genExpression(sExprFalse, partTrueFalse.get_falseExpr(), false, true, mdl, nameInnerClassVariable, indent, assignTerm, typeLeft);
       out.append("IF ").append(cond).append(" THEN ");
-      out.append(exprTrue).append("").append(indent).append("ELSE ");
-      if(exprFalse.charAt(0) == '\n') {
-        exprFalse.delete(0, 1);                    // delete \n which comes from a nested IF
+      out/*.append(assignTerm)*/.append(sExprTrue)/*.append(";")*/.append(indent).append("ELSE ");
+      if(sExprFalse.charAt(0) == '\n') {
+        sExprFalse.delete(0, 1);                    // delete \n which comes from a nested IF
       }
-      out.append(exprFalse).append(" END IF;");
+      out/*.append(assignTerm)*/.append(sExprFalse)/*.append(";")*/.append(" END IF;");
     }
     else {
       if(StringFunctions.startsWith(cond, "data_Data.cmd(13)='1'"))
         Debugutil.stop();
-      VhdlExprTerm exprTrue = genExpression(null, partTrueFalse.get_trueExpr(), false, bInsideProcess, mdl, nameInnerClassVariable, null, null);
-      VhdlExprTerm exprFalse = genExpression(null, partTrueFalse.get_falseExpr(), false, bInsideProcess, mdl, nameInnerClassVariable, null, null);
       //TODO maybe check of assignTerm-type and exprLeft, exprRight-Type and convert.
       if(assignTerm !=null) { out.append(indent).append(assignTerm); }
-      out.append(exprTrue.b).append(" WHEN ").append(cond).append(" ELSE ").append(exprFalse.b);
+      out.append(sExprTrue).append(" WHEN ").append(cond).append(" ELSE ").append(sExprFalse);
       if(assignTerm !=null) { out.append(";"); }
     }
   }
@@ -520,7 +536,7 @@ public class VhdlConv {
    * @return the assigned variable only if it is a concatenated expression with assign in mid.
    * @throws Exception
    */
-  VhdlExprTerm genAssignment ( Appendable out, VhdlExprTerm exprLeft, J2Vhdl_Operator oper
+  VhdlExprTerm genAssignInExpression ( Appendable out, VhdlExprTerm exprLeft, J2Vhdl_Operator oper
     , VhdlExprTerm exprRightArg, JavaSrc.ExprPart part, JavaSrc.ExprPartTrueFalse partTrueFalse
     , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
     , CharSequence indent
@@ -587,7 +603,7 @@ public class VhdlConv {
                     exprLeft.exprType_.nrofElements = 1;
                   }
                   exprLeft.b.append(")");
-                  exprRight = genExpression(null, iArgs.next(), false, bInsideProcess, mdl, nameInnerClassVariable, indent, " <= ");
+                  exprRight = genExpression(null, iArgs.next(), false, bInsideProcess, mdl, nameInnerClassVariable, indent, " <= ", exprLeft.exprType_);
                   if(iArgs.hasNext()) {
                     final JavaSrc.SimpleValue exprLsBitValue = iArgs.next().get_value();
                     int lsBitValue = exprLsBitValue.get_intNumber();
@@ -634,7 +650,7 @@ public class VhdlConv {
         exprRight.convertToBool();                         // need bool in IF() or WHEN()
         StringBuilder assignTerm = new StringBuilder(exprLeft.b);
         assignTerm.append(" ").append(sOpVhdl);
-        genTrueFalse(out, exprRight.b, partTrueFalse, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
+        genTrueFalse(out, typeVar, exprRight.b, partTrueFalse, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
         if(out != exprLeft.b) { appendLineColumn(out, exprLeft); }
       }
       else if(typeVar.etype == VhdlExprTerm.ExprTypeEnum.stdtype && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype) {
@@ -932,7 +948,7 @@ public class VhdlConv {
     @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       final JavaSrc.Expression exprLeftBit = iArgs.next();
       exprDst.b.append("(");
-      genExpression(exprDst.b, exprLeftBit, false, false, mdl, nameInnerClassVariable, null, null);
+      genExpression(exprDst.b, exprLeftBit, false, false, mdl, nameInnerClassVariable, null, null, null);
       final JavaSrc.Expression exprLeftBitPos = iArgs.next();
       int leftBitPos = getIntFromExpr(exprLeftBitPos);
       final JavaSrc.Expression exprSrc = iArgs.next(); // it has 2 arguments, get first
@@ -951,7 +967,7 @@ public class VhdlConv {
   GenOperation getBits = new GenOperation() {
     @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       final JavaSrc.Expression exprSrc = iArgs.next(); // it has 2 arguments, get first
-      VhdlExprTerm srcTerm = genExpression(null, exprSrc, false, false, mdl, nameInnerClassVariable, "", null);
+      VhdlExprTerm srcTerm = genExpression(null, exprSrc, false, false, mdl, nameInnerClassVariable, "", null, null);
 //      assert(exprSrc.getSize_ExprPart() ==1);
 //      J2Vhdl_Variable descrVar = getVariableAccess(exprSrc.get_value());
 //      assert(descrVar !=null);
@@ -976,9 +992,9 @@ public class VhdlConv {
       if(exprLeft ==null || exprRight ==null) {
         vhdlError("concatbits(left, bits, right) needs two expressions", exprLeft);
       }
-      VhdlExprTerm exprLeftPart = genExpression(exprDst.b, exprLeft, false, false, mdl, nameInnerClassVariable, null, null);
+      VhdlExprTerm exprLeftPart = genExpression(exprDst.b, exprLeft, false, false, mdl, nameInnerClassVariable, null, null, null);
       exprDst.b.append(" & ");
-      VhdlExprTerm exprRightPart = genExpression(exprDst.b, exprRight, false, false, mdl, nameInnerClassVariable, null, null);
+      VhdlExprTerm exprRightPart = genExpression(exprDst.b, exprRight, false, false, mdl, nameInnerClassVariable, null, null, null);
       if(  exprLeftPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype || exprLeftPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype
         || exprRightPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype || exprRightPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype) {
         exprDst.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitVtype;  // maybe bitStdVconst for one of left or right, hence test all
@@ -999,7 +1015,7 @@ public class VhdlConv {
       int nrBitsShift = getIntFromExpr(exprNrBitsShift);
       exprDst.b.append("(").append(Integer.toString(nrBitsShift-1)).append(" DOWNTO 0) & (");
       final JavaSrc.Expression exprRightBit = iArgs.next();
-      genExpression(exprDst.b, exprRightBit, false, false, mdl, nameInnerClassVariable, null, null);
+      genExpression(exprDst.b, exprRightBit, false, false, mdl, nameInnerClassVariable, null, null, null);
       exprDst.b.append(")");
       exprDst.exprType_.set(descrVar.type);                   //The type comes from the variable which is accessed for shift bits.
       return descrVar;

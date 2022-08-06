@@ -1467,7 +1467,7 @@ public class Java2Vhdl {
                   if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
                     
                     StringBuilder sAssg = new StringBuilder(100);  // for one line assignment
-                    VhdlExprTerm term = this.vhdlConv.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=");
+                    VhdlExprTerm term = this.vhdlConv.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=", null);
                     int sep = sAssg.indexOf("<=");
                     int sepe = sAssg.indexOf(";");
                     final J2Vhdl_ModuleVhdlType.Assgn assgn;
