@@ -80,22 +80,24 @@ public final class VhdlExprTerm extends SrcInfo {
   /**Type of a variable and a build expression.
    */
   enum ExprTypeEnum {
-      undef   (0,0)
-    , bittype (0,0)
-    , bitStdConst (0,1)   //'1'
-    , bitStdVconst(1,1)   //"1100"
-    , numConst(0,1)
-    , bitVtype(1,0)
-    , stdtype (0,0)
-    , stdVtype(1,0)
-    , booltype(0,0)
-    , boolUncompleteType(0,0)
-    , inttype (1,0)
-    , stateBit(0, 1)
-    , uinttype(1,0);
+      undef   (0,0,0)
+    , bittype (0,0,1)
+    , bitStdConst (0,1,0)   //'1'
+    , bitStdVconst(1,1,0)   //"1100"
+    , numConst(0,1,0)
+    , bitVtype(1,0,0)
+    , stdtype (0,0,1)
+    , stdVtype(1,0,0)
+    , booltype(0,0,1)
+    , boolUncompleteType(0,0,1)
+    , inttype (1,0,0)
+    , stateBit(0, 1,0)
+    , uinttype(1,0,0);
     
-    boolean bVector, bConst;
-    ExprTypeEnum(int bVector, int bConst){ this.bVector = bVector !=0; this.bConst = bConst !=0; }
+    final boolean bVector, bConst, bIsOrCanConvertToBool;
+    ExprTypeEnum(int bVector, int bConst, int bCanConvertToBool){ 
+      this.bVector = bVector !=0; this.bConst = bConst !=0; this.bIsOrCanConvertToBool = bCanConvertToBool !=0; 
+    }
   }
 
   static class ExprType {
@@ -272,6 +274,14 @@ public final class VhdlExprTerm extends SrcInfo {
     if( ! super.containsInfo()) { 
       super.setSrcInfo(part);                              // store the source info from the first part
     }
+    boolean dbgStop = false;
+    if(VhdlConv.d.dbgStopEnable) {
+      int[] linecolmn = new int[2];
+      String sFile = part.getSrcInfo(linecolmn);
+      dbgStop = sFile.contains("TxSpe") && linecolmn[0] >= 690 && linecolmn[0] <= 690;
+      if(dbgStop)
+        Debugutil.stop();
+    }
     int posEnd = this.b.length();
     final VhdlExprTerm exprRight;
     if(exprRightArg !=null) {                              // exprRightArg is than given if it comes from the operand precedence. It is calculated independent. 
@@ -279,10 +289,13 @@ public final class VhdlExprTerm extends SrcInfo {
     }
     else if(this.b.length() ==0) { exprRight = null; }     // add part to the empty this ExprPart, for the first part of a term
     else {                                                 // prepare the exprRight from part to add to this.
-      final boolean bNeedBoolRight = opPreced.opBool.bMaybeBool 
-        && (genBool || this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype);
-      //>>>>>>>                                            // should be independently prepared, to adapt some conversions etc.
-      exprRight = genExprPartValue(part.get_value(), opPreced, bNeedBoolRight, mdl, nameInnerClassVariable);
+      // in boolean expressions it is often better to write immediately "variable = '1'" from any element for maybe boolean operations.
+      final boolean bNeedBoolRight = opPreced.opBool.bMaybeBool   //operator is possible a boolean operator 
+        && this.exprType_.etype.bIsOrCanConvertToBool                 //The left expression is convertible to boolean
+        && (genBool || this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype);  //it is a boolean expression, or left is already a boolean type
+        // then the right expression should write as boolean operand.
+      //======>>>>>>>                                      // should be independently prepared, to adapt some conversions etc.
+      exprRight = genExprPartValue(part.get_value(), opPreced, false/*bNeedBoolRight*/, mdl, nameInnerClassVariable, dbgStop);
       if(exprRight == null) {
         this.b.setLength(posEnd);                          // then remove the operator also again, 
         return true;                                      // faulty variable, especially mask, or time.
@@ -293,8 +306,8 @@ public final class VhdlExprTerm extends SrcInfo {
 //      J2Vhdl_Variable varRight = exprRight.variable();
     }
     final boolean bNeedBoolLeft = (exprRight !=null && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype)
-    || opPreced.opBool.bMaybeBool && genBool;              // The operator supports bool and bool is requested
-    // 
+    ; //|| opPreced.opBool.bMaybeBool && genBool;              // The operator supports bool and bool is requested
+    //convert left expr to bool only if right expr is already bool. 
     if(  !bNeedBoolLeft && exprRight !=null                    // if bNeedBool, then conversion to boolean is anyway done in exprLeftAppendOperator in immediately following block
       && !exprRight.exprType_.etype.bConst                 // typical case, right constant, should be proper, tested in VHDL
       && !exprRight.exprType_.etype.bVector                // vector types should be clarified in source, tested in VHDL
@@ -332,7 +345,7 @@ public final class VhdlExprTerm extends SrcInfo {
       } else { //only here if this.b is empty                // + part, then append the part from source expression to the term.
         assert(this.b.length() ==0);
         //======>>>>
-        if(!addPartValue(part.get_value(), false, mdl, nameInnerClassVariable)) {    // false if the operand is not valid, a mask or time 
+        if(!addPartValue(part.get_value(), false, mdl, nameInnerClassVariable, dbgStop)) {    // false if the operand is not valid, a mask or time 
           this.b.setLength(posEnd);                          // then remove the operator also again, 
           return false;                                      // faulty variable, especially mask, or time.
         }
@@ -368,11 +381,12 @@ public final class VhdlExprTerm extends SrcInfo {
 
 
 
-  public static VhdlExprTerm genExprPartValue (JavaSrc.SimpleValue val, J2Vhdl_Operator op, boolean needBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) 
+  public static VhdlExprTerm genExprPartValue (JavaSrc.SimpleValue val, J2Vhdl_Operator op, boolean needBool
+    , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, boolean dbgStop) 
       throws Exception {
     VhdlExprTerm thiz = new VhdlExprTerm(VhdlConv.d);
     thiz.precedSegm = op;
-    boolean bOk = thiz.addPartValue(val, needBool, mdl, nameInnerClassVariable);
+    boolean bOk = thiz.addPartValue(val, needBool, mdl, nameInnerClassVariable, dbgStop);
     return bOk ? thiz : null;
   }
   
@@ -380,31 +394,30 @@ public final class VhdlExprTerm extends SrcInfo {
   
   
   /**Writes the value of an ExprPart to the term
-   * @param b
-   * @param part
-   * @param genBool
-   * @return not null only if a valid variable was written.
-   * @throws Exception 
+   * @param val The simpleValue to add
+   * @param needBool If the value must be bool, then a not can be better done with ='0'
+   * @param mdl The module from where the val was gotten (whereby val may have additionally inner references) 
+   * @param nameInnerClassVariable inner class of mdl for val
+   * @param dbgStop only for internal debugging, checked and set on call in 
+   * @return true if ok
+   * @throws Exception
    */
-  private boolean addPartValue (JavaSrc.SimpleValue val, boolean needBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) 
+  private boolean addPartValue (JavaSrc.SimpleValue val, boolean needBool
+      , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
+      , boolean dbgStop) 
       throws Exception {
-    if(VhdlConv.d.dbgStop) {
-      int[] lineColumn = new int[2];
-      String file = val.getSrcInfo(lineColumn); //BlinkingLed_Fpga
-      if(file.contains("dRxSpe.java") && lineColumn[0] >= 120 && lineColumn[0] <= 120)
-        Debugutil.stop();
-    }
-    String sUnaryOp = val.get_unaryOperator();           // unary operator
+    String sUnaryOp = val.get_unaryOperator();             // unary operator
     if(sUnaryOp !=null && !needBool) {
-      if(sUnaryOp.equals("!")) { sUnaryOp = " NOT "; }
-      else if(sUnaryOp.equals("~")) { sUnaryOp = " NOT "; }  //bitwise NOT
-      else;                                              // unary  + or - remains.
+      if(sUnaryOp.equals("!")) { sUnaryOp = " NOT "; }     // logical NOT
+      else if(sUnaryOp.equals("~")) { sUnaryOp = " NOT "; }// bitwise NOT
+      else;                                                // unary  + or - remains.
       this.b.append(sUnaryOp);
       this.posAfterUnary = this.b.length();
     }
-    // >>>>>>>>>>>>>>>
-    boolean bOk = genSimpleValue(val, false, mdl, nameInnerClassVariable, null);
+    //======>>>>>>>>>>>>>>>
+    boolean bOk = genSimpleValue(val, false, mdl, nameInnerClassVariable, null, dbgStop);
     if(bOk && needBool) { // && this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.booltype) {
+      assert(false);  //no more used
       if(sUnaryOp !=null) {
         if(sUnaryOp.equals("!") || sUnaryOp.equals("~")) {
           this.b.append("='0'");
@@ -421,7 +434,8 @@ public final class VhdlExprTerm extends SrcInfo {
   }
 
 
-  /**Generates a simple value as a part of this expression term.
+  /**Only inner operation of {@link #addPartValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String)}.
+   * Generates a simple value as a part of this expression term.
    * It regards here also references and interface operations. 
    * @param val parsed result for the SimpleValue
    * @param genBool true if the expression should be boolean type, e.g. as IF condition. 
@@ -432,16 +446,10 @@ public final class VhdlExprTerm extends SrcInfo {
    *   because for that an intermediate variable should be created in the line before.   
    * @throws Exception 
    */
-  boolean genSimpleValue(JavaSrc.SimpleValue val, boolean genBool, J2Vhdl_ModuleInstance mdlArg, String nameIclassArg, CharSequence indent) throws Exception {
+  private boolean genSimpleValue(JavaSrc.SimpleValue val, boolean genBool, J2Vhdl_ModuleInstance mdlArg, String nameIclassArg
+    , CharSequence indent, boolean dbgStop) throws Exception {
     try {
       String s = val.toString();
-      boolean dbgStop = false;
-      String s1 = val.toString();
-      if(VhdlConv.d.dbgStop) {
-        int[] lineColumn = new int[2];
-        String file = val.getSrcInfo(lineColumn); //BlinkingLed_Fpga
-        dbgStop = file.contains("BlinkingLed_Fpga.java") && lineColumn[0] >= 54 && lineColumn[0] <= 54;
-      }
       if(dbgStop){
         Debugutil.stop();
       }

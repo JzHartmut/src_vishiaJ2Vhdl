@@ -68,7 +68,7 @@ public class VhdlConv {
   
   static public final VhdlConv d = new VhdlConv(null, new J2Vhdl_FpgaData());
   
-  public boolean dbgStop = true;
+  public boolean dbgStopEnable = true;
   
   public boolean bAppendLineColumn = false;
 
@@ -342,7 +342,7 @@ public class VhdlConv {
     VhdlExprTerm exprLeft = null;                          // left side expression segment from stack popped.
     try {
       boolean bStopExprPart = false;
-      if(this.dbgStop) { 
+      if(this.dbgStopEnable) { 
         int[] lineColumn = new int[2];
         String file = exprRpn.getSrcInfo(lineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
         if(file.contains("FpgaTop_SpeA.java") && lineColumn[0] >= 192 && lineColumn[0] <= 195) {
@@ -526,21 +526,23 @@ public class VhdlConv {
     , CharSequence indent
     , boolean bInsideProcess
     ) throws Exception {
+    boolean dbgStop = false;
     VhdlExprTerm exprRight;
-    if(StringFunctions.startsWith(exprLeft.b, "ringMstLo_Pin"))
+    if(StringFunctions.startsWith(exprLeft.b, "ringMstLo_Pin")) { dbgStop = true; }
+    if(this.dbgStopEnable) { 
+      int[] lineColumn = new int[2];
+      String file = part.getSrcInfo(lineColumn);
+      dbgStop |= file.contains("TxSpe") && lineColumn[0] >= 212 && lineColumn[0] <= 218;
+    }
+    if(dbgStop) {
       Debugutil.stop();
+    }
     if(exprRightArg !=null) {
       exprRight = exprRightArg;
     } else {
       exprRight = null;                  // create the right expression from the part.
       //--------------------------------------------       // check whether it is setBit(...) or setBits(...):
       JavaSrc.SimpleValue value = part.get_value();
-      if(this.dbgStop) { 
-        int[] lineColumn = new int[2];
-        String file = value.getSrcInfo(lineColumn);
-        if(file.contains("TxSpe") && lineColumn[0] >= 212 && lineColumn[0] <= 218)
-          Debugutil.stop();
-      }
       if(value !=null) {                                   // then the part should have a value - simple method call
         JavaSrc.SimpleMethodCall valueOper = value.get_simpleMethodCall();
         if(valueOper !=null) {
@@ -555,11 +557,8 @@ public class VhdlConv {
                 int zOperName = operName.length();
                 if(operName.startsWith("setBit") && zOperName <=7) {
                   final JavaSrc.Expression exprLeftVar = iArgs.next(); // Left variable both as first argument. 
-                  if(this.dbgStop) { 
-                    int[] lineColumn = new int[2];
-                    String file = exprLeftVar.getSrcInfo(lineColumn);
-                    if(file.contains("SpiSlave") && lineColumn[0] >= 214 && lineColumn[0] <= 218)
-                      Debugutil.stop();
+                  if(dbgStop) { 
+                    Debugutil.stop();
                   }
                   assert(exprLeftVar.getSize_ExprPart() ==1);  // should contain the left assign variable.
                   J2Vhdl_Variable leftVar = getVariableAccess(exprLeftVar.get_value(), mdl, nameInnerClassVariable);
@@ -603,7 +602,7 @@ public class VhdlConv {
       }
       if(exprRight ==null) {
         //======>>>>
-        exprRight = VhdlExprTerm.genExprPartValue(part.get_value(), oper, false, mdl, nameInnerClassVariable);
+        exprRight = VhdlExprTerm.genExprPartValue(part.get_value(), oper, false, mdl, nameInnerClassVariable, dbgStop);
         //if(varAssign !=null && varAssign == exprLeft.variable() && nrAllOperands ==2)
         if(exprRight !=null && exprRight.variable() == exprLeft.variable()) {  // assign of same variable as first check
           if(StringFunctions.equals(exprLeft.b, exprRight.b)) { // then check expressions equal, then not necessary in VHDL
@@ -699,7 +698,7 @@ public class VhdlConv {
     assert(expr.getSize_ExprPart()==1);
     VhdlExprTerm dstTerm = null;
     for(JavaSrc.ExprPart part : expr.get_ExprPart()) {
-      dstTerm = VhdlExprTerm.genExprPartValue(part.get_value(), J2Vhdl_Operator.operatorMap.get("@"),  false, mdl, nameInnerClassVariable);
+      dstTerm = VhdlExprTerm.genExprPartValue(part.get_value(), J2Vhdl_Operator.operatorMap.get("@"),  false, mdl, nameInnerClassVariable, false);
     }
     return dstTerm;
   }

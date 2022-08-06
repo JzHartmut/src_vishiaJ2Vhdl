@@ -937,7 +937,7 @@ public class Java2Vhdl {
   
   private void associateActualWithTypeArgumentRefs ( J2Vhdl_ModuleInstance module, JavaSrc.ActualArguments actArgs, Iterator<JavaSrc.Argument> formalArgs ) {
     for(JavaSrc.Expression aggrArgExpr: actArgs.get_Expression() ) {  //the expression for the new Module(value, ...
-      if(VhdlConv.d.dbgStop) {
+      if(VhdlConv.d.dbgStopEnable) {
         int[] linecol = new int[2];
         String src = aggrArgExpr.getSrcInfo(linecol);
         if(linecol[0] >= 35 && linecol[0] <= 35 && src.contains("BlinkingLed_Fpga.java"))
@@ -1548,7 +1548,7 @@ public class Java2Vhdl {
         if(nameOper.equals("prepare") || nameOper.equals("output")) {            // it is an inner class for a VHDL RECORD and PROCESS
           Iterable<JavaSrc.Statement> istmnt = oper.get_methodbody().get_statement();
           if(istmnt !=null) for(JavaSrc.Statement stmnt : istmnt) {
-            if(VhdlConv.d.dbgStop && stmnt.getFilePath().contains("BlinkingLed_Fpga") && stmnt.getLine() >= 77 && stmnt.getLine() <= 77)
+            if(VhdlConv.d.dbgStopEnable && stmnt.getFilePath().contains("BlinkingLed_Fpga") && stmnt.getLine() >= 77 && stmnt.getLine() <= 77)
               Debugutil.stop();
             if(stmnt.isAssignExpr()) {                     // especially not step() and update(), or test operations. 
               //next line is faulty if a Process is created on top level, test with null is proper.

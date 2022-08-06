@@ -166,3 +166,12 @@ That's why the stack operation is used.
 === Distinguish between boolean and BIT from Java to VHDL
 
 Here is more to document, TODO
+
+
+
+
+=== Operation call schema
+
+----
+  
+----
