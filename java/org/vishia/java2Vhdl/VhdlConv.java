@@ -414,7 +414,9 @@ public class VhdlConv {
           //======>>>>>>>
           if(bStopExprPart)
             Debugutil.stop();
-          genAssignInExpression(out, exprLeft, opPreced, exprRight, part, partTrueFalse, mdl, nameInnerClassVariable, indent, bInsideProcess);
+          if(exprLeft.variable() !=null) {                 // elsewhere it is a time variable assignment
+            genAssignInExpression(out, exprLeft, opPreced, exprRight, part, partTrueFalse, mdl, nameInnerClassVariable, indent, bInsideProcess);
+          }
           partTrueFalse = null;
           bUseTrueFalse = false;
         }
@@ -577,7 +579,7 @@ public class VhdlConv {
                     Debugutil.stop();
                   }
                   assert(exprLeftVar.getSize_ExprPart() ==1);  // should contain the left assign variable.
-                  J2Vhdl_Variable leftVar = getVariableAccess(exprLeftVar.get_value(), mdl, nameInnerClassVariable);
+                  J2Vhdl_Variable leftVar = XXXgetVariableAccess(exprLeftVar.get_value(), mdl, nameInnerClassVariable);
                   assert(leftVar !=null);                  // the destination J2Vhdl_Variable for setBit or setBits.
                   if(exprLeft.variable() != leftVar) {
                     vhdlError("leftVar = setBit(leftVar, ... should be the same", exprLeft );
@@ -749,7 +751,7 @@ public class VhdlConv {
    * @return null if a VHDL variable is not able to find. Usual it is because an only internal Java operation is called. 
    * @throws IOException
    */
-  J2Vhdl_Variable getVariableAccess(JavaSrc.SimpleValue val, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws IOException {
+  J2Vhdl_Variable XXXgetVariableAccess(JavaSrc.SimpleValue val, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws IOException {
     JavaSrc.Reference ref = val.get_reference();
     JavaSrc.SimpleVariable var = val.get_simpleVariable();
     final String name;
@@ -952,7 +954,7 @@ public class VhdlConv {
       final JavaSrc.Expression exprLeftBitPos = iArgs.next();
       int leftBitPos = getIntFromExpr(exprLeftBitPos);
       final JavaSrc.Expression exprSrc = iArgs.next(); // it has 2 arguments, get first
-      J2Vhdl_Variable descrVar = getVariableAccess(exprSrc.get_value(), mdl, nameInnerClassVariable);
+      J2Vhdl_Variable descrVar = XXXgetVariableAccess(exprSrc.get_value(), mdl, nameInnerClassVariable);
       if(descrVar == null) {
         vhdlError("variable not found: " + exprSrc.toString(), exprSrc);
       }
@@ -1008,7 +1010,7 @@ public class VhdlConv {
   GenOperation getBitsShL = new GenOperation() {
     @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       final JavaSrc.Expression exprSrc = iArgs.next(); // it has 2 arguments, get first
-      J2Vhdl_Variable descrVar = getVariableAccess(exprSrc.get_value(), mdl, nameInnerClassVariable);
+      J2Vhdl_Variable descrVar = XXXgetVariableAccess(exprSrc.get_value(), mdl, nameInnerClassVariable);
       assert(descrVar !=null);                         // ( 15 DOWNTO 0) if nrofBits = 17 for ex. vector(16 DOWNTO 0)
       exprDst.b.append(descrVar.sElemVhdl);
       final JavaSrc.Expression exprNrBitsShift = iArgs.next();

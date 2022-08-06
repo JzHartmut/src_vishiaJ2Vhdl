@@ -15,6 +15,9 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-06 {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence, boolean)}
+   *   now prepared to use instead {@link VhdlConv#XXXgetVariableAccess(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, J2Vhdl_ModuleInstance, String).}
+   *   The preparation is ok, the replacement is not tested yet.
    * <li>2022-08-06 new {@link #sTypeConversions}, used in new {@link #adjustType(StringBuilder, StringBuilder, ExprType, ExprType)}, 
    *    called in {@link #addOperand(VhdlExprTerm, J2Vhdl_Operator, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, boolean, J2Vhdl_ModuleInstance, String)}
    *    and in {@link VhdlConv#genTrueFalse(Appendable, ExprType, CharSequence, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, J2Vhdl_ModuleInstance, String, boolean, CharSequence, CharSequence)}.
@@ -85,6 +88,7 @@ public final class VhdlExprTerm extends SrcInfo {
   /**Type of a variable and a build expression.
    */
   enum ExprTypeEnum {
+      /**Expression without value. */
       undef       (0, 0,0,0)
     , bittype     (1, 0,0,1)
     , stdtype     (2, 0,0,1)
@@ -97,7 +101,11 @@ public final class VhdlExprTerm extends SrcInfo {
     , boolUncompleteType(9, 0,0,1)
     , inttype     (10, 1,0,0)
     , uinttype    (11, 1,0,0)
-    , numConst    (12, 0,1,0)
+    , numConst    (12, 0,1,0),
+      /**A time variable in Java, not used for VHDL, internally for timing check. */
+      timeVar     (13, 0,0,0),
+      /**A mask variable in Java, not used for VHDL, to mask a longer vector. */
+      maskVar     (14, 0,0,0)  
     ;
     final boolean bVector, bConst, bIsOrCanConvertToBool;
     final int ix;
@@ -356,7 +364,7 @@ public final class VhdlExprTerm extends SrcInfo {
       }
 //      J2Vhdl_Variable varRight = exprRight.variable();
     }
-    if(exprRight !=null) {
+    if(exprRight !=null && exprRight.exprType_.etype != ExprTypeEnum.timeVar && exprRight.exprType_.etype != ExprTypeEnum.maskVar) {
       //
       if(exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.stateBit) {
         assert(opPreced.sJava.equals("=="));
@@ -512,21 +520,28 @@ public final class VhdlExprTerm extends SrcInfo {
       this.posAfterUnary = this.b.length();
     }
     //======>>>>>>>>>>>>>>>
-    boolean bOk = genSimpleValue(val, false, mdl, nameInnerClassVariable, null, dbgStop);
-    if(bOk && needBool) { // && this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.booltype) {
-      assert(false);  //no more used
-      if(sUnaryOp !=null) {
-        if(sUnaryOp.equals("!") || sUnaryOp.equals("~")) {
-          this.b.append("='0'");
+    boolean bOk = true;
+    try {
+      genSimpleValue(val, false, mdl, nameInnerClassVariable, null, dbgStop);
+      
+      if(needBool) { // && this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.booltype) {
+        assert(false);  //no more used
+        if(sUnaryOp !=null) {
+          if(sUnaryOp.equals("!") || sUnaryOp.equals("~")) {
+            this.b.append("='0'");
+          } else {
+            this.b.append("='0'??").append( sUnaryOp ).append("??") ;
+          }
         } else {
-          this.b.append("='0'??").append( sUnaryOp ).append("??") ;
+          this.b.append("='1'");
         }
-      } else {
-        this.b.append("='1'");
-      }
-      this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.booltype;
-      this.exprType_.nrofElements = 1;
-    } //-------------------------------------- // now the value or variable is written in the buffer
+        this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.booltype;
+        this.exprType_.nrofElements = 1;
+      } //-------------------------------------- // now the value or variable is written in the buffer
+    } catch(Throwable exc) {
+      VhdlConv.vhdlError("XException: " + exc.getMessage(), val);
+      return false;
+    }
     return bOk;
   }
 
@@ -543,308 +558,305 @@ public final class VhdlExprTerm extends SrcInfo {
    *   because for that an intermediate variable should be created in the line before.   
    * @throws Exception 
    */
-  private boolean genSimpleValue(JavaSrc.SimpleValue val, boolean genBool, J2Vhdl_ModuleInstance mdlArg, String nameIclassArg
+  private J2Vhdl_Variable genSimpleValue(JavaSrc.SimpleValue val, boolean genBool, J2Vhdl_ModuleInstance mdlArg, String nameIclassArg
     , CharSequence indent, boolean dbgStop) throws Exception {
-    try {
-      String s = val.toString();
-      if(dbgStop){
-        Debugutil.stop();
-      }
-      boolean bOk = true;
-      J2Vhdl_ModuleInstance mdlRef = mdlArg;                 // Generally use mdlRef, maybe other referenced module
-      //inner variable without any reference, also without this .... not supported
-      String sNameIclass = null;  //nameIclassArg;                    // Generally use nameIclass, maybe other referenced process class in the module or in another module. 
-      JavaSrc.Reference ref = val.get_reference();
-      String sRef = null;                                    // String which is used to find the correct variables
-      String sNameRefIfcAccess = null;
-      boolean bRefIclass = false;                            // true then iClass is set per reference
-      boolean bReferencedModule = false;
-      boolean bRefToType = false;
-      while(ref !=null) {
-        boolean bIsThis = ref.get_isThis()!=null;
-        JavaSrc.SimpleVariable var = ref.get_referenceAssociation();
-        JavaSrc.Reference refNext = ref.get_reference();
-        JavaSrc.SimpleVariable varNext = refNext == null ? null : refNext.get_referenceAssociation();
-        sRef = var == null ? null : var.get_variableName(); 
-        String sRefNext = varNext == null ? null : varNext.get_variableName(); 
-        boolean bRefNextUsed = false;
-        
-        if(var ==null && !bIsThis) { 
-          VhdlConv.vhdlError("only a reference with variable is supported", ref);
-          bOk = false;
-        }
-        //
-        if(bIsThis) {                          // iclass before this is only the enclosing class name, remove it. 
-          if(bRefIclass) {
-            if(nameIclassArg == null || nameIclassArg.length()==0) {
-              
-            } else {
-              Debugutil.stop();
-            }
-          }
-          sNameIclass = nameIclassArg;         
-          bReferencedModule = true;
-        } else if(sRef ==null) {          //do nothing if sRef is not given (maybe only for bIsThis)
-        } else if(sRef.equals("z")) {
-          sNameIclass = nameIclassArg;
-          bReferencedModule = true;
-        } else if(sRef.equals("mdl") || sRef.equals("thism")) {  //the own module
-          sNameIclass = null;             // maybe null if operation of the module is called.
-          bReferencedModule = true;
-          //bRefNextUsed = true;
-        } else if(sRef.equals("vhdlMdl")) {                // the associated VHDL external module to a VHDL_CALL sub class
-          mdlRef = mdlRef.idxSubModules.get(nameIclassArg);
-          sNameIclass = null;             // maybe null if operation of the module is called.
-          bReferencedModule = true;
-          //bRefNextUsed = true;
-        } else if(sRef.equals("ref")) {                      // get the referenced module, and maybe an inner sAccess
-          J2Vhdl_ModuleInstance.InnerAccess mdlRef2 = mdlRef.idxAggregatedModules.get(sRefNext);
-          if(mdlRef2 == null) {
-            VhdlConv.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + mdlRef.nameInstance , ref);
-          } else {
-            mdlRef = mdlRef2.mdl;
-            sNameRefIfcAccess = mdlRef2.sAccess;             // set if a interface agent is used to access, 
-            assert(sNameRefIfcAccess == null || sNameRefIfcAccess.length() >0);  //null if the interface is implemented in the module.
-          }
-          bReferencedModule = true;
-          sNameIclass = "";
-          bRefNextUsed = true;
-        } else if(sRef.equals("modules")) {                // access to an own sub modules
-          final String sRefUse;
-          if(mdlRef.nameInstance ==null || mdlRef.type.isTopLevelType) { sRefUse =  sRefNext; }
-          else { sRefUse =  mdlRef.nameInstance + "_" + sRefNext; }
-          mdlRef = VhdlConv.d.fdata.idxModules.get(sRefUse);
-          if(mdlRef == null) {
-            VhdlConv.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + mdlRef.nameInstance , ref);
-          } else {
-            sNameRefIfcAccess = null;             // set if a interface agent is used to access, 
-          }
-          bReferencedModule = true;
-          sNameIclass = "";
-          bRefNextUsed = true;
-        } else if(sRef.equals("Fpga")) {     // static reference Fpga...
-        } else  {                            // any other: use this as inner class
-          if(sNameIclass!=null && sNameIclass.length() >0) {
-            if(sNameIclass.equals("YRxSpeData"))
-              Debugutil.stop();
-            if(Character.isUpperCase(sNameIclass.charAt(0)) && Character.isUpperCase(sRef.charAt(0))) {
-              sNameIclass += "_" + sRef;
-              bRefToType = true;                           // ClassType.Enumtype as global access
-            } else {
-              sNameIclass += "." + sRef;
-            }
-          } else {
-            sNameIclass = sRef;
-          }
-          bRefIclass = true;
-        }
-        if(bRefNextUsed && refNext !=null) {
-          refNext = refNext.get_reference();
-        }
-        ref = refNext;
-        
-      } // while ref2 !=null                                 // ^^^^^^ end reference evaluated ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      if(!bReferencedModule && sNameIclass ==null && nameIclassArg !=null && nameIclassArg.length()>0) {
-        sNameIclass = nameIclassArg;  //for simple variables, necessary if first an operation is called without sNameIclass of course.
+    String s = val.toString();
+    J2Vhdl_Variable varDescr = null;   //only set if a variable was found.
+    if(dbgStop){
+      Debugutil.stop();
+    }
+    J2Vhdl_ModuleInstance mdlRef = mdlArg;                 // Generally use mdlRef, maybe other referenced module
+    //inner variable without any reference, also without this .... not supported
+    String sNameIclass = null;  //nameIclassArg;                    // Generally use nameIclass, maybe other referenced process class in the module or in another module. 
+    JavaSrc.Reference ref = val.get_reference();
+    String sRef = null;                                    // String which is used to find the correct variables
+    String sNameRefIfcAccess = null;
+    boolean bRefIclass = false;                            // true then iClass is set per reference
+    boolean bReferencedModule = false;
+    boolean bRefToType = false;
+    while(ref !=null) {
+      boolean bIsThis = ref.get_isThis()!=null;
+      JavaSrc.SimpleVariable var = ref.get_referenceAssociation();
+      JavaSrc.Reference refNext = ref.get_reference();
+      JavaSrc.SimpleVariable varNext = refNext == null ? null : refNext.get_referenceAssociation();
+      sRef = var == null ? null : var.get_variableName(); 
+      String sRefNext = varNext == null ? null : varNext.get_variableName(); 
+      boolean bRefNextUsed = false;
+      
+      if(var ==null && !bIsThis) { 
+        VhdlConv.vhdlError("only a reference with variable is supported", ref);
+        throw new IllegalArgumentException("genExpression");
       }
       //
-      JavaSrc.ConstNumber constNr = val.get_constNumber();
-      JavaSrc.SimpleVariable var = val.get_simpleVariable();
-      if(!bOk) {} // do nothing
-      else if(val.get_parenthesisExpression()!=null) {
-        this.b.append(" ( ");
-        JavaSrc.Expression expr1 = val.get_Expression();
-        VhdlExprTerm termSimpleValue = VhdlConv.d.genExpression(this.b, expr1, genBool, false, mdlRef, sNameIclass, indent, null, null);
-        this.b.append(" ) ");
-        this.exprType_.set(termSimpleValue.exprType_);
-      }
-      else if(var !=null) {                                // --- variable --------------------------------------------------
-        J2Vhdl_Variable varDescr;
-        String varName = var.get_variableName();
-        if(varName.equals("fast"))
-          Debugutil.stop();
-
-        if(this.precedSegm.sJava.equals("==")) {           // If a equate operator is given, and the expression is a State contant:
-          final String sNameBit;
-          if(bRefToType) {                                 
-            sNameBit = sNameIclass + "_" + varName;        // to another Type
+      if(bIsThis) {                          // iclass before this is only the enclosing class name, remove it. 
+        if(bRefIclass) {
+          if(nameIclassArg == null || nameIclassArg.length()==0) {
+            
           } else {
-            String mdlType = mdlRef.type.nameType;         // The own type
-            sNameBit = mdlType + "_" + sNameIclass + "_" + varName;
-          }
-          String snrBit = VhdlConv.d.fdata.idxEnumBitDef.get(sNameBit);
-          if(snrBit !=null) {
             Debugutil.stop();
-            this.b.append(snrBit);
-            this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stateBit;
           }
         }
-        if(this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.stateBit) {  // not a state bit in succession of the branch immediately above.
-          boolean bTimeMaskVar = sNameIclass !=null && sNameIclass.endsWith("time") || varName.startsWith("time") || varName.startsWith("_time") || varName.startsWith("m_");
-          if(bTimeMaskVar) {
-            varDescr = null;   //not necessary
+        sNameIclass = nameIclassArg;         
+        bReferencedModule = true;
+      } else if(sRef ==null) {          //do nothing if sRef is not given (maybe only for bIsThis)
+      } else if(sRef.equals("z")) {
+        sNameIclass = nameIclassArg;
+        bReferencedModule = true;
+      } else if(sRef.equals("mdl") || sRef.equals("thism")) {  //the own module
+        sNameIclass = null;             // maybe null if operation of the module is called.
+        bReferencedModule = true;
+        //bRefNextUsed = true;
+      } else if(sRef.equals("vhdlMdl")) {                // the associated VHDL external module to a VHDL_CALL sub class
+        mdlRef = mdlRef.idxSubModules.get(nameIclassArg);
+        sNameIclass = null;             // maybe null if operation of the module is called.
+        bReferencedModule = true;
+        //bRefNextUsed = true;
+      } else if(sRef.equals("ref")) {                      // get the referenced module, and maybe an inner sAccess
+        J2Vhdl_ModuleInstance.InnerAccess mdlRef2 = mdlRef.idxAggregatedModules.get(sRefNext);
+        if(mdlRef2 == null) {
+          VhdlConv.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + mdlRef.nameInstance , ref);
+        } else {
+          mdlRef = mdlRef2.mdl;
+          sNameRefIfcAccess = mdlRef2.sAccess;             // set if a interface agent is used to access, 
+          assert(sNameRefIfcAccess == null || sNameRefIfcAccess.length() >0);  //null if the interface is implemented in the module.
+        }
+        bReferencedModule = true;
+        sNameIclass = "";
+        bRefNextUsed = true;
+      } else if(sRef.equals("modules")) {                // access to an own sub modules
+        final String sRefUse;
+        if(mdlRef.nameInstance ==null || mdlRef.type.isTopLevelType) { sRefUse =  sRefNext; }
+        else { sRefUse =  mdlRef.nameInstance + "_" + sRefNext; }
+        mdlRef = VhdlConv.d.fdata.idxModules.get(sRefUse);
+        if(mdlRef == null) {
+          VhdlConv.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + mdlRef.nameInstance , ref);
+        } else {
+          sNameRefIfcAccess = null;             // set if a interface agent is used to access, 
+        }
+        bReferencedModule = true;
+        sNameIclass = "";
+        bRefNextUsed = true;
+      } else if(sRef.equals("Fpga")) {     // static reference Fpga...
+      } else  {                            // any other: use this as inner class
+        if(sNameIclass!=null && sNameIclass.length() >0) {
+          if(sNameIclass.equals("YRxSpeData"))
+            Debugutil.stop();
+          if(Character.isUpperCase(sNameIclass.charAt(0)) && Character.isUpperCase(sRef.charAt(0))) {
+            sNameIclass += "_" + sRef;
+            bRefToType = true;                           // ClassType.Enumtype as global access
+          } else {
+            sNameIclass += "." + sRef;
+          }
+        } else {
+          sNameIclass = sRef;
+        }
+        bRefIclass = true;
+      }
+      if(bRefNextUsed && refNext !=null) {
+        refNext = refNext.get_reference();
+      }
+      ref = refNext;
+      
+    } // while ref2 !=null                                 // ^^^^^^ end reference evaluated ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    if(!bReferencedModule && sNameIclass ==null && nameIclassArg !=null && nameIclassArg.length()>0) {
+      sNameIclass = nameIclassArg;  //for simple variables, necessary if first an operation is called without sNameIclass of course.
+    }
+    //
+    JavaSrc.ConstNumber constNr = val.get_constNumber();
+    JavaSrc.SimpleVariable var = val.get_simpleVariable();
+    if(val.get_parenthesisExpression()!=null) {
+      this.b.append(" ( ");
+      JavaSrc.Expression expr1 = val.get_Expression();
+      VhdlExprTerm termSimpleValue = VhdlConv.d.genExpression(this.b, expr1, genBool, false, mdlRef, sNameIclass, indent, null, null);
+      this.b.append(" ) ");
+      this.exprType_.set(termSimpleValue.exprType_);
+    }
+    else if(var !=null) {                                // --- variable --------------------------------------------------
+      String varName = var.get_variableName();
+      if(varName.equals("fast"))
+        Debugutil.stop();
+
+      if(this.precedSegm.sJava.equals("==")) {           // If a equate operator is given, and the expression is a State contant:
+        final String sNameBit;
+        if(bRefToType) {                                 
+          sNameBit = sNameIclass + "_" + varName;        // to another Type
+        } else {
+          String mdlType = mdlRef.type.nameType;         // The own type
+          sNameBit = mdlType + "_" + sNameIclass + "_" + varName;
+        }
+        String snrBit = VhdlConv.d.fdata.idxEnumBitDef.get(sNameBit);
+        if(snrBit !=null) {
+          Debugutil.stop();
+          this.b.append(snrBit);
+          this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stateBit;
+        }
+      }
+      if(this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.stateBit) {  // not a state bit in succession of the branch immediately above.
+        boolean bMaskVar = varName.startsWith("m_");
+        boolean bTimeMaskVar = sNameIclass !=null && sNameIclass.endsWith("time") || varName.startsWith("time") || varName.startsWith("_time") || bMaskVar;
+        if(bTimeMaskVar || bMaskVar) {
+          varDescr = null;   //not necessary
 //            varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
 //            if(varDescr !=null) {
 //              Debugutil.stop();  //Detection of time variables ....
 //            }
+        } else {
+          if(sRef !=null && sRef.equals("Fpga")) {
+            varDescr = VhdlConv.d.fdata.varClk;
           } else {
-            if(sRef !=null && sRef.equals("Fpga")) {
-              varDescr = VhdlConv.d.fdata.varClk;
-            } else {
-              varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
-            }
+            varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
           }
-          if(varDescr !=null) {
-            if(varDescr.sElemJava.contains("ringMstLo_Pin"))
-              Debugutil.stop();
-            this.setVariable(varDescr);
-            this.exprType_.set(varDescr.type);
-            this.b.append(varDescr.sElemVhdl);
+        }
+        if(varDescr !=null) {
+          if(varDescr.sElemJava.contains("ringMstLo_Pin"))
+            Debugutil.stop();
+          this.setVariable(varDescr);
+          this.exprType_.set(varDescr.type);
+          this.b.append(varDescr.sElemVhdl);
 //            final boolean isBool = varDescr.type.etype == VhdlExprTerm.ExprTypeEnum.bittype;
 //            if(isBool && genBool) { convBoolExpr(this.b, val); }     // appends = '0' or = '1'
-          } else {                                             // Variable not found:
-            bOk = false;
-            if(!bTimeMaskVar) {
-              Debugutil.stop();
-            }
+        } else {                                             // Variable not found:
+          if(bTimeMaskVar) {
+            this.exprType_.etype = ExprTypeEnum.timeVar;
+          } else if(bMaskVar) {
+            this.exprType_.etype = ExprTypeEnum.timeVar;
+          } else {
+            throw new IllegalArgumentException("variable not found");
           }
         }
       }
-      else if(constNr !=null) {
-        String src = constNr.get_sNumber();           // parsed <constNumber?""@> without leading and trailing spaces.
-        if(src ==null) {
-          
-          Debugutil.stop();
-        } else {
-          Debugutil.stop();
-        }
-        if(constNr.get_booleanConst() !=null) {
-          String sBool = val.get_booleanConst();
-          assert(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef);
-          if(sBool.equals("false")) { 
-            this.b.append("'0'"); 
-            if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
-              this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitStdConst;
-              this.exprType_.nrofElements = 1;
-            } 
-          }
-          else if(sBool.equals("true")) { 
-            this.b.append("'1'"); 
-            if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
-              this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitStdConst; 
-              this.exprType_.nrofElements = 1;
-            }
-          }
-          else if(sBool.startsWith("0b")) { 
-            this.b.append(" \"").append(sBool.substring(2)).append("\""); 
-            if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
-              this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitStdVconst;
-              this.exprType_.nrofElements = sBool.length()-2;  // without leading 0b
-            } 
-          }
-          else {
-            this.b.append(" ??boolExpr:").append(sBool);
-          }
-        }
-        else if(constNr.get_intNumber() !=0) {
-          this.b.append(Integer.toString(val.get_intNumber()));
+    }
+    else if(constNr !=null) {
+      String src = constNr.get_sNumber();           // parsed <constNumber?""@> without leading and trailing spaces.
+      if(src ==null) {
+        
+        Debugutil.stop();
+      } else {
+        Debugutil.stop();
+      }
+      if(constNr.get_booleanConst() !=null) {
+        String sBool = val.get_booleanConst();
+        assert(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef);
+        if(sBool.equals("false")) { 
+          this.b.append("'0'"); 
           if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
-            this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.numConst;
+            this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitStdConst;
+            this.exprType_.nrofElements = 1;
+          } 
+        }
+        else if(sBool.equals("true")) { 
+          this.b.append("'1'"); 
+          if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
+            this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitStdConst; 
             this.exprType_.nrofElements = 1;
           }
         }
-        else if(constNr.get_hexNumber() !=0 || src.startsWith("0x")) {
-          this.b.append("x\"").append(src.substring(2)).append("\"");
-          //this.b.append('\"').append(Integer.toBinaryString(val.get_hexNumber())).append('\"');
+        else if(sBool.startsWith("0b")) { 
+          this.b.append(" \"").append(sBool.substring(2)).append("\""); 
           if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
             this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitStdVconst;
-            this.exprType_.nrofElements = (src.length()-2) *4;  //without "0x..."
-          }
+            this.exprType_.nrofElements = sBool.length()-2;  // without leading 0b
+          } 
         }
         else {
-          this.b.append(src);                  // it is usual "0", TODO save info for type of scanned number, as attribute
-        }
-      } //if constNr
-      //    ------------------------------------------------- simpleMethodCall ----------------------------------------------
-      else if(val.get_simpleMethodCall() !=null) {           // operation(), either Fpga.getBits(..) ... or interface()
-        final JavaSrc.SimpleMethodCall sFn = val.get_simpleMethodCall();
-        final JavaSrc.ActualArguments args = sFn.get_actualArguments();
-        final Iterator <JavaSrc.Expression> iArgs = args ==null ? null: args.get_Expression().iterator();
-        String name = sFn.get_methodName();
-        if(dbgStop)
-          Debugutil.stop();
-        if(sRef !=null && sRef.equals("Fpga")) {             // static operation from the Fpga class
-          if(name.equals("clk"))
-            Debugutil.stop();
-          try {                                              //Fpga.getBit(...) etc.
-            VhdlConv.GenOperation genOperation = VhdlConv.d.idxFpgaOperations.get(name);
-            if(genOperation ==null) {
-              Debugutil.stop();
-              this.b.append("??").append(name).append("??");
-            } else {
-              genOperation.genOperation(iArgs, this, mdlRef, nameIclassArg);
-            }
-          } catch(NoSuchElementException exc) {
-            System.err.println(exc.getMessage());
-          }
-        } else if(name.equals("update")) {                   // do nothing, it is a update operation in the update operation.
-          // Hint the update operation is evaluated to find assignments to the output.
-          // operation of mdl level are for testing, not intent to be interface calls.
-        } else if(bReferencedModule) {                       // operation call via ref module is an interface operation
-          String sIfcName;
-          if(sNameRefIfcAccess == null) {
-            sIfcName = (sNameIclass !=null && sNameIclass.length() >0 ? sNameIclass + "." : "") + name;
-            sNameIclass = null;                            // it was used to build the sIfcName, not part of the variable access.
-          } else {
-            sIfcName = sNameRefIfcAccess + "." + name;
-          }
-          J2Vhdl_ModuleType.IfcConstExpr ifcDef = mdlRef ==null ? null : mdlRef.type.idxIfcExpr.get(sIfcName);
-          if(ifcDef == null) {
-            VhdlConv.vhdlError("VhdlExprTerm.genSimpleValue() - Interface operation not found: " + sIfcName + " in module: " + (mdlRef == null ? "??unknown" : mdlRef.nameInstance), val);
-          } else if(ifcDef.constVal !=null) {
-            J2Vhdl_Variable cvar = ifcDef.constVal.var;
-            this.exprType_.etype = cvar.type.etype;
-            this.exprType_.nrofElements = cvar.type.nrofElements;
-            this.b.append(cvar.sElemVhdl);
-          } else if(ifcDef.expr !=null){
-            boolean bInsideProcess = true;
-            //String sNameIclassOp = nameIclassArg;                   // because inside the operation the outside reference to the call is not relevant. 
-            VhdlExprTerm ifcTerm = VhdlConv.d.genExpression(null, ifcDef.expr, genBool, bInsideProcess, mdlRef, sNameIclass, indent, null, null);
-            this.exprType_.etype = ifcTerm.exprType_.etype;
-            this.exprType_.nrofElements = ifcTerm.exprType_.nrofElements;
-            this.nrOperands += ifcTerm.nrOperands;
-            if(ifcTerm.nrOperands >1) {                      // use parenthesis to clarify precedence problems.
-              this.b.append(" (").append(ifcTerm.b).append(") ");
-            } else {
-              this.b.append(ifcTerm.b);
-            }
-          }
-        }
-        else {
-          // do nothing on all other operation calls, without ref.module and without Fpga.
-          // this operations are for simulation. (TODO what about functions in VHDL, solution, use specific annotation and build a list of functions. 
+          this.b.append(" ??boolExpr:").append(sBool);
         }
       }
-      else if(val.get_simpleCharLiteral() !=null) {          // it is especially to deal with STD_LOGIC
-        char cc = val.get_simpleCharLiteral().charAt(0);
+      else if(constNr.get_intNumber() !=0) {
+        this.b.append(Integer.toString(val.get_intNumber()));
         if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
-          this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stdtype;  //'L' 'H' '0' etc. are standard types.
-          this.exprType_.nrofElements = 0;  //without "0x..."
-        } else {
-          Debugutil.stop();
+          this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.numConst;
+          this.exprType_.nrofElements = 1;
         }
-        this.b.append('\'').append(cc).append('\'');
+      }
+      else if(constNr.get_hexNumber() !=0 || src.startsWith("0x")) {
+        this.b.append("x\"").append(src.substring(2)).append("\"");
+        //this.b.append('\"').append(Integer.toBinaryString(val.get_hexNumber())).append('\"');
+        if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
+          this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitStdVconst;
+          this.exprType_.nrofElements = (src.length()-2) *4;  //without "0x..."
+        }
       }
       else {
-        this.b.append("0");   //it seems to be an integer value with 0. Nothing is detected else.
+        this.b.append(src);                  // it is usual "0", TODO save info for type of scanned number, as attribute
       }
-  //    if(this.b.toString().contains("FpgaTop_SpeA_dataStateRx"))
-  //      Debugutil.stop();
-      return bOk;
-    } catch(Throwable exc) {
-      VhdlConv.vhdlError("XException: " + exc.getMessage(), val);
-      return false;
+    } //if constNr
+    //    ------------------------------------------------- simpleMethodCall ----------------------------------------------
+    else if(val.get_simpleMethodCall() !=null) {           // operation(), either Fpga.getBits(..) ... or interface()
+      final JavaSrc.SimpleMethodCall sFn = val.get_simpleMethodCall();
+      final JavaSrc.ActualArguments args = sFn.get_actualArguments();
+      final Iterator <JavaSrc.Expression> iArgs = args ==null ? null: args.get_Expression().iterator();
+      String name = sFn.get_methodName();
+      if(dbgStop)
+        Debugutil.stop();
+      if(sRef !=null && sRef.equals("Fpga")) {             // static operation from the Fpga class
+        if(name.equals("clk"))
+          Debugutil.stop();
+        try {                                              //Fpga.getBit(...) etc.
+          VhdlConv.GenOperation genOperation = VhdlConv.d.idxFpgaOperations.get(name);
+          if(genOperation ==null) {
+            Debugutil.stop();
+            this.b.append("??").append(name).append("??");
+          } else {
+            genOperation.genOperation(iArgs, this, mdlRef, nameIclassArg);
+          }
+        } catch(NoSuchElementException exc) {
+          System.err.println(exc.getMessage());
+        }
+      } else if(name.equals("update")) {                   // do nothing, it is a update operation in the update operation.
+        // Hint the update operation is evaluated to find assignments to the output.
+        // operation of mdl level are for testing, not intent to be interface calls.
+      } else if(bReferencedModule) {                       // operation call via ref module is an interface operation
+        String sIfcName;
+        if(sNameRefIfcAccess == null) {
+          sIfcName = (sNameIclass !=null && sNameIclass.length() >0 ? sNameIclass + "." : "") + name;
+          sNameIclass = null;                            // it was used to build the sIfcName, not part of the variable access.
+        } else {
+          sIfcName = sNameRefIfcAccess + "." + name;
+        }
+        J2Vhdl_ModuleType.IfcConstExpr ifcDef = mdlRef ==null ? null : mdlRef.type.idxIfcExpr.get(sIfcName);
+        if(ifcDef == null) {
+          VhdlConv.vhdlError("VhdlExprTerm.genSimpleValue() - Interface operation not found: " + sIfcName + " in module: " + (mdlRef == null ? "??unknown" : mdlRef.nameInstance), val);
+        } else if(ifcDef.constVal !=null) {
+          J2Vhdl_Variable cvar = ifcDef.constVal.var;
+          this.exprType_.etype = cvar.type.etype;
+          this.exprType_.nrofElements = cvar.type.nrofElements;
+          this.b.append(cvar.sElemVhdl);
+        } else if(ifcDef.expr !=null){
+          boolean bInsideProcess = true;
+          //String sNameIclassOp = nameIclassArg;                   // because inside the operation the outside reference to the call is not relevant. 
+          VhdlExprTerm ifcTerm = VhdlConv.d.genExpression(null, ifcDef.expr, genBool, bInsideProcess, mdlRef, sNameIclass, indent, null, null);
+          this.exprType_.etype = ifcTerm.exprType_.etype;
+          this.exprType_.nrofElements = ifcTerm.exprType_.nrofElements;
+          this.nrOperands += ifcTerm.nrOperands;
+          if(ifcTerm.nrOperands >1) {                      // use parenthesis to clarify precedence problems.
+            this.b.append(" (").append(ifcTerm.b).append(") ");
+          } else {
+            this.b.append(ifcTerm.b);
+          }
+        }
+      }
+      else {
+        // do nothing on all other operation calls, without ref.module and without Fpga.
+        // this operations are for simulation. (TODO what about functions in VHDL, solution, use specific annotation and build a list of functions. 
+      }
     }
+    else if(val.get_simpleCharLiteral() !=null) {          // it is especially to deal with STD_LOGIC
+      char cc = val.get_simpleCharLiteral().charAt(0);
+      if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
+        this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stdtype;  //'L' 'H' '0' etc. are standard types.
+        this.exprType_.nrofElements = 0;  //without "0x..."
+      } else {
+        Debugutil.stop();
+      }
+      this.b.append('\'').append(cc).append('\'');
+    }
+    else {
+      this.b.append("0");   //it seems to be an integer value with 0. Nothing is detected else.
+    }
+//    if(this.b.toString().contains("FpgaTop_SpeA_dataStateRx"))
+//      Debugutil.stop();
+    return varDescr;  //set if a variable was found. 
   }
 
   
@@ -862,7 +874,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * @return null on unnecessary variables. null with an error message on not found variables.
    * @throws IOException
    */
-  J2Vhdl_Variable getVariableAccess(JavaSrc.SimpleVariable var, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws IOException {
+  static J2Vhdl_Variable getVariableAccess(JavaSrc.SimpleVariable var, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws IOException {
     final String name;
     final String sRef;
     final String sElemJava;
