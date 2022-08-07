@@ -1116,7 +1116,7 @@ public class Java2Vhdl {
       if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
         String nameiClass = iclass.get_classident();
         String annotation = iclass.get_Annotation();
-        if( annotation !=null && (annotation.equals("Fpga.VHDL_PROCESS") || annotation.equals("Fpga.VHDL_CALL")) 
+        if( annotation !=null && (annotation.equals("Fpga.VHDL_PROCESS") || annotation.startsWith("Fpga.LINK_VHDL_MODULE")) 
          || nameiClass.equals("In") || nameiClass.equals("Out")) {
 //        if( (!isToplevel || !nameiClass.equals("In") && !nameiClass.equals("Out")) && !nameiClass.equals("Ref") && !nameiClass.equals("Modules")) {
           final String nameProcess = nameModule + "_" + nameiClass;
@@ -1308,7 +1308,7 @@ public class Java2Vhdl {
           final String nameiClass = iclass.get_classident();
           JavaSrc.ClassContent iClassC = iclass.get_classContent();
           String sAnnot = iclass.get_Annotation();
-          if(sAnnot !=null && (sAnnot.equals("Fpga.VHDL_PROCESS") || sAnnot.equals("Fpga.VHDL_CALL")) && iClassC.getSize_variableDefinition() >0
+          if(sAnnot !=null && (sAnnot.equals("Fpga.VHDL_PROCESS") || sAnnot.startsWith("Fpga.LINK_VHDL_MODULE")) && iClassC.getSize_variableDefinition() >0
             || ( !result.isTopLevel() && (nameiClass.equals("In") || nameiClass.equals("Out")) ) ) {
             final String nameRecord = nameModule + "_" + nameiClass;
             this.vhdlConv.setInnerClass(nameRecord, nameModule);
@@ -1351,7 +1351,7 @@ public class Java2Vhdl {
           String nameiClass = iclass.get_classident();
           String sAnnot = iclass.get_Annotation();
           JavaSrc.ClassContent iClassC = iclass.get_classContent();
-          if(sAnnot !=null && (sAnnot.equals("Fpga.VHDL_PROCESS") || sAnnot.equals("Fpga.VHDL_CALL")) && iClassC.getSize_variableDefinition() >0
+          if(sAnnot !=null && (sAnnot.equals("Fpga.VHDL_PROCESS") || sAnnot.contains("Fpga.LINK_VHDL_MODULE")) && iClassC.getSize_variableDefinition() >0
              || ( !isTopLevel && (nameiClass.equals("In") || nameiClass.equals("Out")) ) ) {
             final String nameProcess = nameModule + "_" + nameiClass;
             final String nameRecord = nameClass + "_" + nameiClass + "_REC";
@@ -1439,12 +1439,12 @@ public class Java2Vhdl {
         if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
           String sAnnot = iclass.get_Annotation();
           String nameiClass = iclass.get_classident();
-          if(sAnnot !=null && sAnnot.equals("Fpga.VHDL_CALL")) {            // it is an inner class for a VHDL RECORD and PROCESS
+          if(sAnnot !=null && sAnnot.startsWith("Fpga.LINK_VHDL_MODULE")) {            // it is an inner class for a VHDL RECORD and PROCESS
             //
-            String nameVhdlMdl = sModule  + "_" + nameiClass + "_" + "vhdlMdl";                      // search that ctor of the class
-            String nameInnerClassVariable = Character.toLowerCase(nameiClass.charAt(0))+ nameiClass.substring(1);
-            JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass, nameInnerClassVariable); // which is designated with @Fpga.CTOR_PROCESS
+            JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass); // which is designated with @Fpga.CTOR_PROCESS
             if(ctor !=null) {
+              String nameVhdlMdl = sModule  + "_" + nameiClass + "_" + "vhdlMdl";                      // search that ctor of the class
+              String nameInnerClassVariable = Character.toLowerCase(nameiClass.charAt(0))+ nameiClass.substring(1);
               String vhdlMdlType = null; 
               for(JavaSrc.Argument arg : ctor.get_argument()) {
                 if(arg.get_variableName().equals("vhdlMdl")) {
@@ -1454,7 +1454,7 @@ public class Java2Vhdl {
                 }
               }
               if(vhdlMdlType == null) {
-                VhdlConv.vhdlError("VHDL_CALL ctor must have an argument 'vhdlMdl'", ctor);
+                VhdlConv.vhdlError("LINK_VHDL_MODULE ctor must have an argument 'vhdlMdl'", ctor);
               }
               else {
                 String ctorName = ctor.get_constructor();
@@ -1463,6 +1463,23 @@ public class Java2Vhdl {
                 List<StringBuilder> preAssignments = null;
                 for(JavaSrc.Statement stmnt: ctor.get_statement()) {             // all first level statements in the ctor
                   //CharSequence txt = this.vhdlConv.genStatement(stmnt, 1);
+                  if(stmnt.getSize_variableDefinition()>0) {   // search a intermediate reference in statements
+                    JavaSrc.VariableInstance varDef = stmnt.get_variableDefinition().iterator().next(); // only one variable per stmnt accepted.
+                    String varName = varDef.get_variableName();
+                    if(varName.equals("vhdlMdl1")) {
+                      JavaSrc.Type argType = varDef.get_type();
+                      vhdlMdlType = argType.get_name();
+                      JavaSrc.Expression initialValue = varDef.get_Expression();
+                      if(initialValue == null) {
+                        VhdlConv.vhdlError("internal reference should be initializes", stmnt);
+                      } else {
+                        JavaSrc.ExprPart exprPart = initialValue.get_ExprPart().iterator().next();
+                        JavaSrc.SimpleValue refValue = exprPart.get_value();
+                        VhdlExprTerm.RefModuleInfo mdlRefInfo = VhdlExprTerm.getReferencedModule(refValue, moduleInstance, null);
+                        Debugutil.stop();  //not used yet, concept not ready.
+                      }
+                    }
+                  }
                   JavaSrc.Expression expr = stmnt.get_Expression();
                   if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
                     
@@ -1515,14 +1532,14 @@ public class Java2Vhdl {
    * @param clazz from this inner class
    * @return the parse result for that.
    */
-  public JavaSrc.ConstructorDefinition getCtorVhdlCall ( JavaSrc.ClassDefinition clazz, String nameInnerClassVariable) {
+  public JavaSrc.ConstructorDefinition getCtorVhdlCall ( JavaSrc.ClassDefinition clazz) {
     JavaSrc.ClassContent clazzC = clazz.get_classContent();
     if(clazzC.getSize_constructorDefinition()>0) {
       for(JavaSrc.ConstructorDefinition ctor: clazzC.get_constructorDefinition()) {
         JavaSrc.ModifierMethod modif = ctor.get_ModifierMethod();
         if(modif !=null) {
           String annot = modif.get_Annotation();
-          if(annot !=null && annot.equals("Fpga.VHDL_CALL")) {
+          if(annot !=null && annot.startsWith("Fpga.LINK_VHDL_MODULE")) {
             return ctor;
           }
         }

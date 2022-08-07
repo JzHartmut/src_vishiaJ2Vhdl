@@ -15,6 +15,8 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-07 new, {@link RefModuleInfo} separated {@link #getReferencedModule(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, J2Vhdl_ModuleInstance, String)}
+   *   should be used (todo) for intermediate references in a ctor. Especially for VhdlMdl on (at)Fpga.LINK_VHDL_MODULE 
    * <li>2022-08-06 {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence, boolean)}
    *   now prepared to use instead {@link VhdlConv#XXXgetVariableAccess(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, J2Vhdl_ModuleInstance, String).}
    *   The preparation is ok, the replacement is not tested yet.
@@ -546,6 +548,137 @@ public final class VhdlExprTerm extends SrcInfo {
   }
 
 
+  static class RefModuleInfo {
+    
+    J2Vhdl_ModuleInstance mdlRef = null;                 // Generally use mdlRef, maybe other referenced module
+    String sNameIclass = null;
+    String sRef = null;                                    // String which is used to find the correct variables
+    String sNameRefIfcAccess = null;
+    boolean bRefIclass = false;                            // true then iClass is set per reference
+    boolean bReferencedModule = false;
+    boolean bRefToType = false;
+    boolean bVarUsedForReference = false;
+  
+    void getReference ( JavaSrc.SimpleValue val, J2Vhdl_ModuleInstance mdlArg, String nameIclassArg) {
+      JavaSrc.Reference ref = val.get_reference();
+      this.mdlRef = mdlArg;
+      while(ref !=null) {
+        boolean bIsThis = ref.get_isThis()!=null;
+        JavaSrc.SimpleVariable var = ref.get_referenceAssociation();
+        JavaSrc.Reference refNext = ref.get_reference();
+        JavaSrc.SimpleVariable varNext = refNext == null ? null : refNext.get_referenceAssociation();
+        this.sRef = var == null ? null : var.get_variableName(); 
+        final String sRefNext;
+        final boolean bMaybeVarUsedForReference;;
+        if(varNext == null){
+          JavaSrc.SimpleVariable varval = val.get_simpleVariable();
+          sRefNext = varval == null ? null : varval.get_variableName();   //may be used to get a reference itself from the SimpleValue
+          bMaybeVarUsedForReference = true;
+        } else { 
+          sRefNext = varNext.get_variableName(); 
+          bMaybeVarUsedForReference = false;
+        } 
+        boolean bRefNextUsed = false;
+        
+        if(var ==null && !bIsThis) { 
+          VhdlConv.vhdlError("only a reference with variable is supported", ref);
+          throw new IllegalArgumentException("genExpression");
+        }
+        //
+        if(bIsThis) {                          // iclass before this is only the enclosing class name, remove it. 
+          if(this.bRefIclass) {
+            if(nameIclassArg == null || nameIclassArg.length()==0) {
+              
+            } else {
+              Debugutil.stop();
+            }
+          }
+          this.sNameIclass = nameIclassArg;         
+          this.bReferencedModule = true;
+        } else if(this.sRef ==null) {          //do nothing if sRef is not given (maybe only for bIsThis)
+        } else if(this.sRef.equals("z")) {
+          this.sNameIclass = nameIclassArg;
+          this.bReferencedModule = true;
+        } else if(this.sRef.equals("mdl") || this.sRef.equals("thism")) {  //the own module
+          this.sNameIclass = null;             // maybe null if operation of the module is called.
+          this.bReferencedModule = true;
+          //bRefNextUsed = true;
+        } else if(this.sRef.equals("vhdlMdl")) {                // the associated VHDL external module to a LINK_VHDL_MODULE sub class
+          this.mdlRef = this.mdlRef.idxSubModules.get(nameIclassArg);
+          this.sNameIclass = null;             // maybe null if operation of the module is called.
+          this.bReferencedModule = true;
+          //bRefNextUsed = true;
+        } else if(this.sRef.equals("ref")) {                      // get the referenced module, and maybe an inner sAccess
+          J2Vhdl_ModuleInstance.InnerAccess mdlRef2 = this.mdlRef.idxAggregatedModules.get(sRefNext);
+          if(mdlRef2 == null) {
+            VhdlConv.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + this.mdlRef.nameInstance , ref);
+          } else {
+            this.bVarUsedForReference = bMaybeVarUsedForReference;
+            this.mdlRef = mdlRef2.mdl;
+            this.sNameRefIfcAccess = mdlRef2.sAccess;             // set if a interface agent is used to access, 
+            assert(this.sNameRefIfcAccess == null || this.sNameRefIfcAccess.length() >0);  //null if the interface is implemented in the module.
+          }
+          this.bReferencedModule = true;
+          this.sNameIclass = "";
+          bRefNextUsed = true;
+        } else if(this.sRef.equals("modules")) {                // access to an own sub modules
+          final String sRefUse;
+  //        if(mdlRef.nameInstance ==null || mdlRef.type.isTopLevelType) { sRefUse =  sRefNext; }
+  //        else { sRefUse =  mdlRef.nameInstance + "_" + sRefNext; }
+  //        mdlRef = VhdlConv.d.fdata.idxModules.get(sRefUse);
+          this.mdlRef = this.mdlRef.idxSubModules.get(sRefNext);
+          if(this.mdlRef == null) {
+            VhdlConv.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + this.mdlRef.nameInstance , ref);
+          } else {
+            this.bVarUsedForReference = bMaybeVarUsedForReference;
+            this.sNameRefIfcAccess = null;                        // set if a interface agent is used to access, 
+          }
+          this.bReferencedModule = true;
+          this.sNameIclass = "";
+          bRefNextUsed = true;
+        } else if(this.sRef.equals("Fpga")) {     // static reference Fpga...
+        } else  {                            // any other: use this as inner class
+          if(this.sNameIclass!=null && this.sNameIclass.length() >0) {
+            if(this.sNameIclass.equals("YRxSpeData"))
+              Debugutil.stop();
+            if(Character.isUpperCase(this.sNameIclass.charAt(0)) && Character.isUpperCase(this.sRef.charAt(0))) {
+              this.sNameIclass += "_" + this.sRef;
+              this.bRefToType = true;                           // ClassType.Enumtype as global access
+            } else {
+              this.sNameIclass += "." + this.sRef;
+            }
+          } else {
+            this.sNameIclass = this.sRef;
+          }
+          this.bRefIclass = true;
+        }
+        if(bRefNextUsed && refNext !=null) {
+          refNext = refNext.get_reference();
+        }
+        ref = refNext;
+        
+      } // while ref2 !=null                                 // ^^^^^^ end reference evaluated ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    }
+  
+  
+  }
+  
+  
+  static RefModuleInfo getReferencedModule ( JavaSrc.SimpleValue val, J2Vhdl_ModuleInstance mdlArg, String nameIclassArg ) {
+    RefModuleInfo info;
+    JavaSrc.Reference ref = val.get_reference();
+    if(ref !=null) {
+      info = new RefModuleInfo();
+      info.getReference(val, mdlArg, nameIclassArg);
+    } else {
+      info = null;
+    }
+    return info;
+  }
+  
+  
+  
+  
   /**Only inner operation of {@link #addPartValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String)}.
    * Generates a simple value as a part of this expression term.
    * It regards here also references and interface operations. 
@@ -565,102 +698,14 @@ public final class VhdlExprTerm extends SrcInfo {
     if(dbgStop){
       Debugutil.stop();
     }
-    J2Vhdl_ModuleInstance mdlRef = mdlArg;                 // Generally use mdlRef, maybe other referenced module
+    RefModuleInfo mdlRefInfo = getReferencedModule(val, mdlArg, nameIclassArg);
+    J2Vhdl_ModuleInstance mdlRef = mdlRefInfo == null ? mdlArg : mdlRefInfo.mdlRef;
     //inner variable without any reference, also without this .... not supported
-    String sNameIclass = null;  //nameIclassArg;                    // Generally use nameIclass, maybe other referenced process class in the module or in another module. 
-    JavaSrc.Reference ref = val.get_reference();
-    String sRef = null;                                    // String which is used to find the correct variables
-    String sNameRefIfcAccess = null;
-    boolean bRefIclass = false;                            // true then iClass is set per reference
-    boolean bReferencedModule = false;
-    boolean bRefToType = false;
-    while(ref !=null) {
-      boolean bIsThis = ref.get_isThis()!=null;
-      JavaSrc.SimpleVariable var = ref.get_referenceAssociation();
-      JavaSrc.Reference refNext = ref.get_reference();
-      JavaSrc.SimpleVariable varNext = refNext == null ? null : refNext.get_referenceAssociation();
-      sRef = var == null ? null : var.get_variableName(); 
-      String sRefNext = varNext == null ? null : varNext.get_variableName(); 
-      boolean bRefNextUsed = false;
-      
-      if(var ==null && !bIsThis) { 
-        VhdlConv.vhdlError("only a reference with variable is supported", ref);
-        throw new IllegalArgumentException("genExpression");
-      }
-      //
-      if(bIsThis) {                          // iclass before this is only the enclosing class name, remove it. 
-        if(bRefIclass) {
-          if(nameIclassArg == null || nameIclassArg.length()==0) {
-            
-          } else {
-            Debugutil.stop();
-          }
-        }
-        sNameIclass = nameIclassArg;         
-        bReferencedModule = true;
-      } else if(sRef ==null) {          //do nothing if sRef is not given (maybe only for bIsThis)
-      } else if(sRef.equals("z")) {
-        sNameIclass = nameIclassArg;
-        bReferencedModule = true;
-      } else if(sRef.equals("mdl") || sRef.equals("thism")) {  //the own module
-        sNameIclass = null;             // maybe null if operation of the module is called.
-        bReferencedModule = true;
-        //bRefNextUsed = true;
-      } else if(sRef.equals("vhdlMdl")) {                // the associated VHDL external module to a VHDL_CALL sub class
-        mdlRef = mdlRef.idxSubModules.get(nameIclassArg);
-        sNameIclass = null;             // maybe null if operation of the module is called.
-        bReferencedModule = true;
-        //bRefNextUsed = true;
-      } else if(sRef.equals("ref")) {                      // get the referenced module, and maybe an inner sAccess
-        J2Vhdl_ModuleInstance.InnerAccess mdlRef2 = mdlRef.idxAggregatedModules.get(sRefNext);
-        if(mdlRef2 == null) {
-          VhdlConv.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + mdlRef.nameInstance , ref);
-        } else {
-          mdlRef = mdlRef2.mdl;
-          sNameRefIfcAccess = mdlRef2.sAccess;             // set if a interface agent is used to access, 
-          assert(sNameRefIfcAccess == null || sNameRefIfcAccess.length() >0);  //null if the interface is implemented in the module.
-        }
-        bReferencedModule = true;
-        sNameIclass = "";
-        bRefNextUsed = true;
-      } else if(sRef.equals("modules")) {                // access to an own sub modules
-        final String sRefUse;
-        if(mdlRef.nameInstance ==null || mdlRef.type.isTopLevelType) { sRefUse =  sRefNext; }
-        else { sRefUse =  mdlRef.nameInstance + "_" + sRefNext; }
-        mdlRef = VhdlConv.d.fdata.idxModules.get(sRefUse);
-        if(mdlRef == null) {
-          VhdlConv.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + mdlRef.nameInstance , ref);
-        } else {
-          sNameRefIfcAccess = null;             // set if a interface agent is used to access, 
-        }
-        bReferencedModule = true;
-        sNameIclass = "";
-        bRefNextUsed = true;
-      } else if(sRef.equals("Fpga")) {     // static reference Fpga...
-      } else  {                            // any other: use this as inner class
-        if(sNameIclass!=null && sNameIclass.length() >0) {
-          if(sNameIclass.equals("YRxSpeData"))
-            Debugutil.stop();
-          if(Character.isUpperCase(sNameIclass.charAt(0)) && Character.isUpperCase(sRef.charAt(0))) {
-            sNameIclass += "_" + sRef;
-            bRefToType = true;                           // ClassType.Enumtype as global access
-          } else {
-            sNameIclass += "." + sRef;
-          }
-        } else {
-          sNameIclass = sRef;
-        }
-        bRefIclass = true;
-      }
-      if(bRefNextUsed && refNext !=null) {
-        refNext = refNext.get_reference();
-      }
-      ref = refNext;
-      
-    } // while ref2 !=null                                 // ^^^^^^ end reference evaluated ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    if(!bReferencedModule && sNameIclass ==null && nameIclassArg !=null && nameIclassArg.length()>0) {
-      sNameIclass = nameIclassArg;  //for simple variables, necessary if first an operation is called without sNameIclass of course.
-    }
+    String sNameIclass = mdlRefInfo !=null ? mdlRefInfo.sNameIclass : nameIclassArg;
+//    String sNameIclass = null;  //nameIclassArg;                    // Generally use nameIclass, maybe other referenced process class in the module or in another module. 
+//        if((mdlRefInfo ==null || !mdlRefInfo.bReferencedModule) && sNameIclass ==null && nameIclassArg !=null && nameIclassArg.length()>0) {
+//      sNameIclass = nameIclassArg;  //for simple variables, necessary if first an operation is called without sNameIclass of course.
+//    }
     //
     JavaSrc.ConstNumber constNr = val.get_constNumber();
     JavaSrc.SimpleVariable var = val.get_simpleVariable();
@@ -678,7 +723,7 @@ public final class VhdlExprTerm extends SrcInfo {
 
       if(this.precedSegm.sJava.equals("==")) {           // If a equate operator is given, and the expression is a State contant:
         final String sNameBit;
-        if(bRefToType) {                                 
+        if(mdlRefInfo !=null && mdlRefInfo.bRefToType) {                                 
           sNameBit = sNameIclass + "_" + varName;        // to another Type
         } else {
           String mdlType = mdlRef.type.nameType;         // The own type
@@ -701,7 +746,7 @@ public final class VhdlExprTerm extends SrcInfo {
 //              Debugutil.stop();  //Detection of time variables ....
 //            }
         } else {
-          if(sRef !=null && sRef.equals("Fpga")) {
+          if(mdlRefInfo !=null && mdlRefInfo.sRef !=null && mdlRefInfo.sRef.equals("Fpga")) {
             varDescr = VhdlConv.d.fdata.varClk;
           } else {
             varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
@@ -789,7 +834,7 @@ public final class VhdlExprTerm extends SrcInfo {
       String name = sFn.get_methodName();
       if(dbgStop)
         Debugutil.stop();
-      if(sRef !=null && sRef.equals("Fpga")) {             // static operation from the Fpga class
+      if(mdlRefInfo !=null && mdlRefInfo.sRef !=null && mdlRefInfo.sRef.equals("Fpga")) {             // static operation from the Fpga class
         if(name.equals("clk"))
           Debugutil.stop();
         try {                                              //Fpga.getBit(...) etc.
@@ -806,13 +851,13 @@ public final class VhdlExprTerm extends SrcInfo {
       } else if(name.equals("update")) {                   // do nothing, it is a update operation in the update operation.
         // Hint the update operation is evaluated to find assignments to the output.
         // operation of mdl level are for testing, not intent to be interface calls.
-      } else if(bReferencedModule) {                       // operation call via ref module is an interface operation
+      } else if(mdlRefInfo !=null && mdlRefInfo.bReferencedModule) {                       // operation call via ref module is an interface operation
         String sIfcName;
-        if(sNameRefIfcAccess == null) {
+        if(mdlRefInfo ==null || mdlRefInfo.sNameRefIfcAccess == null) {
           sIfcName = (sNameIclass !=null && sNameIclass.length() >0 ? sNameIclass + "." : "") + name;
           sNameIclass = null;                            // it was used to build the sIfcName, not part of the variable access.
         } else {
-          sIfcName = sNameRefIfcAccess + "." + name;
+          sIfcName = mdlRefInfo.sNameRefIfcAccess + "." + name;
         }
         J2Vhdl_ModuleType.IfcConstExpr ifcDef = mdlRef ==null ? null : mdlRef.type.idxIfcExpr.get(sIfcName);
         if(ifcDef == null) {
@@ -859,6 +904,7 @@ public final class VhdlExprTerm extends SrcInfo {
     return varDescr;  //set if a variable was found. 
   }
 
+  
   
   
   
