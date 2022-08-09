@@ -17,6 +17,9 @@ public class J2Vhdl_ModuleInstance {
   /**instance name first local, then changed to the top level global name as stored in {@link J2Vhdl_FpgaData#idxModules} */
   String nameInstance;
   
+  
+  final J2Vhdl_ModuleInstance mdlParent;
+  
   final boolean bInOutModule;
   
   final J2Vhdl_ModuleType type;
@@ -38,9 +41,10 @@ public class J2Vhdl_ModuleInstance {
   /**Associations between the used internal name name as key and the aggregated module. */
   Map<String, J2Vhdl_ModuleInstance.InnerAccess> idxAggregatedModules = new TreeMap<String, J2Vhdl_ModuleInstance.InnerAccess>();
 
-  public J2Vhdl_ModuleInstance(String nameInstance, J2Vhdl_ModuleType type, boolean bInOutModule
+  public J2Vhdl_ModuleInstance(String nameInstance, J2Vhdl_ModuleInstance mdlParent, J2Vhdl_ModuleType type, boolean bInOutModule
       , JavaSrc.VariableInstance mVarInit, JavaSrc.SimpleMethodCall operInit) {
     this.type = type;
+    this.mdlParent = mdlParent;
     this.nameInstance = nameInstance;
     this.bInOutModule = bInOutModule;
     this.mVarInit = mVarInit;

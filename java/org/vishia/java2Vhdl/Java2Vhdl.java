@@ -34,6 +34,8 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-07 in {@link #associateActualWithTypeArgumentRefs(J2Vhdl_ModuleInstance, org.vishia.java2Vhdl.parseJava.JavaSrc.ActualArguments, Iterator)}
+   *   Association improved, with associations of inner modules gotten from Ref.
    * <li>2022-08-04 in {@link #genVhdlCall(StringBuilder)}: Now also generates statements to prepare the inputs.
    * <li>2022-08-01 {@link #evaluateModuleClassCtor(J2Vhdl_ModuleType, org.vishia.java2Vhdl.parseJava.JavaSrc.ClassContent)}
    *   now called with the type, saves the init routines, and {@link #prepareModuleInstance(J2Vhdl_ModuleInstance)}
@@ -70,7 +72,7 @@ public class Java2Vhdl {
    * <li>descr: Change of description of elements.
    * </ul> 
    */
-  public static final String sVersion = "2022-07-28";
+  public static final String sVersion = "2022-08-07";
 
   
   
@@ -480,7 +482,7 @@ public class Java2Vhdl {
           }
           this.fdata.idxModuleTypes.put(className, moduleType); // Store in idxModuleTypes with the simple className
           if(this.fdata.topInstance ==null) { //bTopLevel) {                                      // build an module instance also from the top level file as Module
-            this.fdata.topInstance = new J2Vhdl_ModuleInstance(className, moduleType, false, null, null);
+            this.fdata.topInstance = new J2Vhdl_ModuleInstance(className, null, moduleType, false, null, null);
           }
           String sAnnot = pclass.get_Annotation();
           if(sAnnot == null || !sAnnot.contains("Fpga.VHDL_MODULE")) {
@@ -613,7 +615,7 @@ public class Java2Vhdl {
             J2Vhdl_ModuleType inoutType = new J2Vhdl_ModuleType(nameType, null, iclass, false);
             newInnerTypes.add(inoutType);    //instead: this.fdata.idxModuleTypes.put(name, inoutType); //concurrentmodificationException
             prepareIfcOperationsInModuleType(inoutType, inoutType, null, iclass.get_classContent());
-            J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, inoutType, true, null, null);  // J2Vhdl_ModuleInstance ToplevelType_input
+            J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, null, inoutType, true, null, null);  // J2Vhdl_ModuleInstance ToplevelType_input
             this.fdata.idxModules.put(name, inoutModule);
             searchForIfcAccess(iclass.get_classContent(), inoutType);
           }
@@ -682,8 +684,8 @@ public class Java2Vhdl {
   }
   
   
-  private void createModuleInstancesRecursively ( J2Vhdl_ModuleInstance mdl0, String nameMdl0, int recursion ) {
-    J2Vhdl_ModuleType mdlt0 = mdl0.type;
+  private void createModuleInstancesRecursively ( J2Vhdl_ModuleInstance mdlParent, String nameMdl0, int recursion ) {
+    J2Vhdl_ModuleType mdlt0 = mdlParent.type;
     if(recursion >3) {
       VhdlConv.vhdlError("too many sub modules nested", mdlt0.moduleClass);
     }
@@ -696,9 +698,9 @@ public class Java2Vhdl {
         J2Vhdl_ModuleType typeSubmdl = this.fdata.idxModuleTypes.get(sType);
         final String nameSubmdl = nameMdl0 == null ? innerNameSubmdl : nameMdl0 + "_" + innerNameSubmdl;
         JavaSrc.SimpleMethodCall operInit = mdlt0.idxSubModulesInit == null ? null : mdlt0.idxSubModulesInit.get(innerNameSubmdl); //may existing or not
-        J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubmdl, typeSubmdl, false, mVar, operInit); //typeSubModule, false);
-        if(mdl0.idxSubModules == null) { mdl0.idxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>(); }
-        mdl0.idxSubModules.put(innerNameSubmdl, subModule);
+        J2Vhdl_ModuleInstance subModule = new J2Vhdl_ModuleInstance(nameSubmdl, mdlParent, typeSubmdl, false, mVar, operInit); //typeSubModule, false);
+        if(mdlParent.idxSubModules == null) { mdlParent.idxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>(); }
+        mdlParent.idxSubModules.put(innerNameSubmdl, subModule);
         this.fdata.idxModules.put(subModule.nameInstance, subModule); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
         createModuleInstancesRecursively(subModule, subModule.nameInstance, recursion +1);
       }
@@ -943,6 +945,8 @@ public class Java2Vhdl {
         if(linecol[0] >= 35 && linecol[0] <= 35 && src.contains("BlinkingLed_Fpga.java"))
           Debugutil.stop();
       }
+      if(module.nameInstance.equals("ct_ct_clkDiv")) //"txSpe_crcGen"))
+        Debugutil.stop();
       JavaSrc.ExprPart aggrArgExpr1 = aggrArgExpr.get_ExprPart().iterator().next();  //The only one part of the expression
       JavaSrc.SimpleValue aggrVal = aggrArgExpr1.get_value();
       //StringBuilder sbAggrRef = new StringBuilder();
@@ -959,15 +963,32 @@ public class Java2Vhdl {
       }
       String sAggrVarName = aggrVal.get_simpleVariable().get_variableName();
       String sAggrName;
-      String sInnerName;
+      final String sInnerName;
+      final J2Vhdl_ModuleInstance aggrModule;
       if(sAggrRef == null) {
         sAggrName = sAggrVarName;                          // module inside Modules class
+        aggrModule = this.fdata.idxModules.get(sAggrName);
         sInnerName = null;
-      } else if(sAggrVarName.equals("input") ) {           // It can be only the OwnClass.this.input
+      } 
+      else if(sAggrVarName.equals("input") ) {           // It can be only the OwnClass.this.input
         sAggrName = sAggrRef + "." + sAggrVarName;         // OwnClass.input is the name of the referenced module.
+        aggrModule = this.fdata.idxModules.get(sAggrName);
         sInnerName = null;                                 // Note: OwnClass is usual the top level class, it has Input and Output as inner class
-      } else {
+      } 
+      else if(sAggrRef.equals("ref")) {
+        sAggrName = "ref." + sAggrVarName;                              
+        J2Vhdl_ModuleInstance.InnerAccess mdlAccess = module.mdlParent.idxAggregatedModules.get(sAggrVarName);
+        aggrModule = mdlAccess.mdl;
+        sInnerName = mdlAccess.sAccess;
+      } 
+      else if(sAggrRef.equals("thism")) {
+        sAggrName = sAggrRef;                              
+        aggrModule = module.mdlParent;
+        sInnerName = sAggrVarName;                         // onwClass.this.ifcAgent or this.module.ifcAgent, then use it.
+      } 
+      else {
         sAggrName = sAggrRef;                              // either OwnClass.this or this.module.ifcModule, then it is OwnClass or module.
+        aggrModule = this.fdata.idxModules.get(sAggrName);
         if(sAggrVarName == null || sAggrVarName.equals("this")) {
           sInnerName = null;                               // ownClass.this: ignore this is non relevant variable.
         } else {
@@ -979,7 +1000,6 @@ public class Java2Vhdl {
 //      } else {
 //        sAggrName = sAggrRef + sAggrVarName;
 //      }
-      J2Vhdl_ModuleInstance aggrModule = this.fdata.idxModules.get(sAggrName);
       if(aggrModule ==null) {
         Debugutil.stop();
       }
@@ -989,9 +1009,9 @@ public class Java2Vhdl {
       //VhdlConv.AggregatedModule aggrModule = new VhdlConv.AggregatedModule();
       //aggrModule.name = sAggrRecordInstance;
       if(aggrModule == null) {
-        System.err.println("    Aggregation: " + sNameFormalArg + "<-- " + sAggrName + ": ???moduleNotFound");
+        System.err.println("    Aggregation: " + module.nameInstance + "." + sNameFormalArg + "<-- " + sAggrName + ": ???moduleNotFound");
       } else {
-        System.out.println("    Aggregation: " + sNameFormalArg + "<--" + aggrModule.nameInstance);
+        System.out.println("    Aggregation: " + module.nameInstance + "." + sNameFormalArg + "<--" + aggrModule.nameInstance);
       }
       if(sInnerName !=null && sInnerName.equals("this"))
         Debugutil.stop();
