@@ -850,44 +850,28 @@ public class Java2Vhdl {
   
   
   
-  /**It prepares a module instance which is given in the <pre>
+  /**Prepares a module instance with the necessary aggregations. 
+   * The module is defined in the <pre>
    * public class Modules {
-   *   public final Module nameInstance = new Module(references, for_aggregations));
+   *   public final Module nameInstance = new Module(reference, ref2));
+   *   public final OtherModule name = new OtherModule();
+   *   //...
+   *   Modules ( Ref ref, Moduleclass thism) {
+   *     name.init(ref1, references)
    * </pre>
-   *   <ul>
-   *   <li>{@link Module#moduleClass} The parse result of the Java src file, the relevant class
-   *   <li>{@link Module#idxAggregatedModules}. This is an index of the aggregated module of this sub module
-   *     build from the formal and actual arguments in the constructor,
-   *     in the code example above: <code>(references, for_aggregations)</code>
-   *     This index (java.util.Map) is used for the association from a reference to an aggregation
-   *     to another module inside the Java code (<code>formalName</code>)
-   *     to the really used module identifier.
-   *     Each entry contains:
-   *     <ul>
-   *     <li>key <code>formalName</code>: name of the formal argument in the constructor of the Submodule. 
-   *       This is the internal name used in Java code of this module, not related to VHDL.
-   *       The same <code>formalName</code> should be used as reference in the inner class <code>Ref</code>
-   *       in this class: <pre>
-   *       private static final class Ref {
-   *         final Type formalName;
-   *       </pre>
-   *       Hence the used reference in the Java code to an access data form another module is:<br>
-   *       <code>ref.formalName.accessOp()</code>
-   *     <li>{@link VhdlConv.AggregatedModule#name} <code>moduleName</code> of the aggregated module in the parent. The real used module. 
-   *       It builds the first part of the SIGNAL name of the RECORD in VHDL.
-   *     <li>{@link VhdlConv.AggregatedModule#idxAccess}. This is also in index, contains:
-   *       <ul>
-   *       <li>String key: name of an access operation, able to use in an interface.
-   *       <li>Accessed variable in the inner process class in the form as it is necessary for VHDL. 
-   *         It is built from the access operation (interface implementation) which contains for example<br>
-   *         <code>return q.variable; //</code>whereby q is the internal instance for the process.<br>
-   *         This is translaed to <code>"_q.variable"</code> which builds the correct access to a RECORD instance in VHDL
-   *         joined with the instance name <code>moduleName_q.variable</code> for VHDL access.
-   *       </ul> 
-   *     </ul>
-   * </ul> 
+   * In Java the references, which builds the aggregations of the module, can be given on construction
+   * or with the init routine. Both is equal, init() is necessary if references are crossed (not a pure tree).
+   * <br>
+   * In VHDL the references are other registered modules, instances of RECORDs, with its name. 
+   * <br>
+   * It uses {@link J2Vhdl_ModuleInstance#mVarInit} for the initial parameters on new Module(...),
+   * which is stored on creation of the module. This variable is set to null after access, to garbage it.
+   * It is the immediate parse result of the ctor. 
+   * <br>
+   * See called {@link #associateActualWithTypeArgumentRefs(J2Vhdl_ModuleInstance, org.vishia.java2Vhdl.parseJava.JavaSrc.ActualArguments, Iterator)}
+   * for more details. 
+   * 
    * @param module The simple created module only from the ctor {@link Module#Module(String, JavaSrc)}
-   * @param mVar This is the parse result from the variable in the <code>class Modules { Type variable = new Type(...)</code>
    */
   private void prepareModuleInstance ( J2Vhdl_ModuleInstance module) {
 
@@ -937,6 +921,42 @@ public class Java2Vhdl {
   
   
   
+  /**Associates this module to other modules. 
+   * It fills {@link J2Vhdl_ModuleInstance#idxAggregatedModules} with the found module aggregations. 
+   *     <ul>
+   *     <li>key <code>formalName</code> from argument "formalArgs": name of the formal argument in the constructor of the Submodule
+   *       or in the init() operation. 
+   *       This is the internal name used in Java code of this module, not related to VHDL.
+   *       The same <code>formalName</code> should be used as reference in the inner class <code>Ref</code>
+   *       in this class: <pre>
+   *       private static final class Ref {
+   *         final Type formalName;
+   *       </pre>
+   *       Hence the used reference in the Java code to an access data form another module is:<br>
+   *       <code>ref.formalName.accessOp()</code>
+   *     <li>value the found module with the expression given with the argument "actArgs".
+   *    </ul> 
+   * <br>
+   * "actArgs" can contain:
+   * <ul>
+   *   <li>"this.otherModule": Reference to a given module even in this Modules class. Usual for the top level.
+   *     It uses module: {@link J2Vhdl_ModuleInstance#mdlParent} and their {@link J2Vhdl_ModuleInstance#idxSubModules}.
+   *     For the top level it contains the same modules as {@link J2Vhdl_FpgaData#idxModules},
+   *     but for sub modules the parent should be accessed (its content of the "class Modules").  
+   *   <li>"Moduleclass.this" Reference to the parent module. Because the "class Module" may not be static, 
+   *     this is possible in Java. You need write this kind of access (with dedicated this) in Java to detect it for the J2Vhdl translation. 
+   *   <li>"thism": Same as "Moduleclass.this", reference to the parent module, which is this class file. 
+   *     "thism" can be given as ctor argument name.
+   *   <li>"ref.referredModule" Reference to a Module which is referred by the parent module. For sub modules.
+   *     It uses module: {@link J2Vhdl_ModuleInstance#mdlParent} and their {@link J2Vhdl_ModuleInstance#idxAggregatedModules}. 
+   *   <li>Any reference can contain also "....ifcAccess": A interface access defined in the referenced module.
+   *     This is stored as {@link J2Vhdl_ModuleInstance.InnerAccess#sAccess} and used as key for
+   *     {@link J2Vhdl_ModuleType#idxIfcExpr} .
+   * </ul>
+   * @param module for this module
+   * @param actArgs arguments either from {@link J2Vhdl_ModuleInstance#mVarInit} for new Module(args) or from init(args)
+   * @param formalArgs name of the formal arguments from the module's ctor.
+   */
   private void associateActualWithTypeArgumentRefs ( J2Vhdl_ModuleInstance module, JavaSrc.ActualArguments actArgs, Iterator<JavaSrc.Argument> formalArgs ) {
     for(JavaSrc.Expression aggrArgExpr: actArgs.get_Expression() ) {  //the expression for the new Module(value, ...
       if(VhdlConv.d.dbgStopEnable) {
@@ -945,8 +965,8 @@ public class Java2Vhdl {
         if(linecol[0] >= 35 && linecol[0] <= 35 && src.contains("BlinkingLed_Fpga.java"))
           Debugutil.stop();
       }
-      if(module.nameInstance.equals("ct_ct_clkDiv")) //"txSpe_crcGen"))
-        Debugutil.stop();
+//      if(module.nameInstance.equals("ct_ct_clkDiv")) //"txSpe_crcGen"))
+//        Debugutil.stop();
       JavaSrc.ExprPart aggrArgExpr1 = aggrArgExpr.get_ExprPart().iterator().next();  //The only one part of the expression
       JavaSrc.SimpleValue aggrVal = aggrArgExpr1.get_value();
       //StringBuilder sbAggrRef = new StringBuilder();
@@ -966,11 +986,16 @@ public class Java2Vhdl {
       final String sInnerName;
       final J2Vhdl_ModuleInstance aggrModule;
       if(sAggrRef == null) {
-        sAggrName = sAggrVarName;                          // module inside Modules class
-        aggrModule = this.fdata.idxModules.get(sAggrName);
-        sInnerName = null;
+         sAggrRef = sAggrVarName;        //maybe also "thism" or local module
+         sAggrVarName = null;
+        //        sAggrName = sAggrVarName;                          // module inside Modules class
+//        aggrModule = this.fdata.idxModules.get(sAggrName);
+//        sInnerName = null;
       } 
-      else if(sAggrVarName.equals("input") ) {           // It can be only the OwnClass.this.input
+      else if(sAggrRef.equals(module.mdlParent.type.nameType)) {  //EnvirClass.this for the reference:
+        sAggrRef = "thism";
+      }
+      if(sAggrVarName !=null && sAggrVarName.equals("input") ) { // It can be only the OwnClass.this.input
         sAggrName = sAggrRef + "." + sAggrVarName;         // OwnClass.input is the name of the referenced module.
         aggrModule = this.fdata.idxModules.get(sAggrName);
         sInnerName = null;                                 // Note: OwnClass is usual the top level class, it has Input and Output as inner class
@@ -988,7 +1013,8 @@ public class Java2Vhdl {
       } 
       else {
         sAggrName = sAggrRef;                              // either OwnClass.this or this.module.ifcModule, then it is OwnClass or module.
-        aggrModule = this.fdata.idxModules.get(sAggrName);
+        aggrModule = module.mdlParent.idxSubModules.get(sAggrName);
+        //aggrModule = this.fdata.idxModules.get(sAggrName);
         if(sAggrVarName == null || sAggrVarName.equals("this")) {
           sInnerName = null;                               // ownClass.this: ignore this is non relevant variable.
         } else {
@@ -1009,7 +1035,7 @@ public class Java2Vhdl {
       //VhdlConv.AggregatedModule aggrModule = new VhdlConv.AggregatedModule();
       //aggrModule.name = sAggrRecordInstance;
       if(aggrModule == null) {
-        System.err.println("    Aggregation: " + module.nameInstance + "." + sNameFormalArg + "<-- " + sAggrName + ": ???moduleNotFound");
+        VhdlConv.vhdlError("Error Aggregation module not found: " + module.nameInstance + "." + sNameFormalArg + "<-- " + sAggrName + ": ???moduleNotFound", actArgs);
       } else {
         System.out.println("    Aggregation: " + module.nameInstance + "." + sNameFormalArg + "<--" + aggrModule.nameInstance);
       }
