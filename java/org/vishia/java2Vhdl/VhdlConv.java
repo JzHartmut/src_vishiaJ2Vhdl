@@ -21,6 +21,9 @@ public class VhdlConv {
   
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-10 Now obsolete double operations getVariableAccess(...), genAggregation(...) and evalIfcOper(...) removed.
+   *   This operations were replaced by some stuff in {@link VhdlExprTerm} and yet used only for getBitShL/R and setBit,
+   *   with a twice effort of maintenance. Now replaced.  
    * <li>2022-08-06 see comment in {@link VhdlExprTerm}, type conversions. 
    * <li>2022-07-06 in {@link #genAssignment(Appendable, VhdlExprTerm, J2Vhdl_Operator, VhdlExprTerm, ExprPart, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPartTrueFalse, J2Vhdl_ModuleInstance, String, CharSequence, boolean)}:
    *   now uses TO_BIT and TO_STDULOGIC instead IF and WHEN for the assignments, important for assign to called Vhdl
@@ -578,8 +581,10 @@ public class VhdlConv {
                   if(dbgStop) { 
                     Debugutil.stop();
                   }
-                  assert(exprLeftVar.getSize_ExprPart() ==1);  // should contain the left assign variable.
-                  J2Vhdl_Variable leftVar = XXXgetVariableAccess(exprLeftVar.get_value(), mdl, nameInnerClassVariable);
+                  VhdlExprTerm variableExpr = genExprOnePart(exprLeftVar, mdl, nameInnerClassVariable);     // first argument variable
+                  J2Vhdl_Variable leftVar = variableExpr.variable();
+//                  assert(exprLeftVar.getSize_ExprPart() ==1);  // should contain the left assign variable.
+//                  J2Vhdl_Variable leftVar = XXXgetVariableAccess(exprLeftVar.get_value(), mdl, nameInnerClassVariable);
                   assert(leftVar !=null);                  // the destination J2Vhdl_Variable for setBit or setBits.
                   if(exprLeft.variable() != leftVar) {
                     vhdlError("leftVar = setBit(leftVar, ... should be the same", exprLeft );
@@ -713,11 +718,12 @@ public class VhdlConv {
    * @throws Exception
    */
   VhdlExprTerm genExprOnePart(JavaSrc.Expression expr, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
-    assert(expr.getSize_ExprPart()==1);
-    VhdlExprTerm dstTerm = null;
-    for(JavaSrc.ExprPart part : expr.get_ExprPart()) {
-      dstTerm = VhdlExprTerm.genExprPartValue(part.get_value(), J2Vhdl_Operator.operatorMap.get("@"),  false, mdl, nameInnerClassVariable, false);
+    if(expr.getSize_ExprPart()!=1) {
+      vhdlError("The expression should only contain one part. Only the first part is used", expr);
     }
+    VhdlExprTerm dstTerm = null;
+    JavaSrc.ExprPart part = expr.get_ExprPart().iterator().next();
+    dstTerm = VhdlExprTerm.genExprPartValue(part.get_value(), J2Vhdl_Operator.operatorMap.get("@"),  false, mdl, nameInnerClassVariable, false);
     return dstTerm;
   }
   
@@ -745,207 +751,6 @@ public class VhdlConv {
   
   
   
-  /**Search the proper VHDL variable due to the given Java expression.
-   * @param val contains a reference possible, variable access or operation call.
-   *   The operation may be an interface operation or a only Java code operation, then returns null.
-   * @return null if a VHDL variable is not able to find. Usual it is because an only internal Java operation is called. 
-   * @throws IOException
-   */
-  J2Vhdl_Variable XXXgetVariableAccess(JavaSrc.SimpleValue val, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws IOException {
-    JavaSrc.Reference ref = val.get_reference();
-    JavaSrc.SimpleVariable var = val.get_simpleVariable();
-    final String name;
-    final String sRef;
-    final String sElemJava;
-    final String dbg;
-    final boolean oper4ifc;
-    if(var !=null) {
-      name = var.get_variableName(); 
-      oper4ifc = false;
-    } else {
-      JavaSrc.SimpleMethodCall oper = val.get_simpleMethodCall();
-      if(oper !=null) {
-        name = oper.get_methodName();                 // it is an interface operation call, the name should be same as the accessed variable.
-        oper4ifc = true;
-        if(this.idxBadOperations.get(name) !=null) {
-          return null;  
-        }
-        if(name.equals("ct"))
-          Debugutil.stop();
-      } else {
-        oper4ifc=false;
-        name = null;
-      }
-    }
-    if(name ==null) { 
-      vhdlError("J2Vhdl_Variable expected", var); 
-      return null;
-    } else {
-      if(  name.startsWith("m_")                           // variables m_ are masks for Java, not relevant. 
-        || name.equals("time") || name.startsWith("time_") || name.equals("_time_")) {
-        return null;                                       // all variables with time or not relevant
-      }
-      JavaSrc.Reference ref2 = ref;
-      JavaSrc.SimpleVariable refVar;
-      if(name.equals("led"))
-        Debugutil.stop();
-      if(ref !=null) { // && (ref.get_isThis() ==null || ref.get_Expression() !=null)) {
-        do {                                               // repeat access to ref if ref is "this."
-          refVar = ref2.get_referenceAssociation();
-          ref2 = ref2.get_reference();                      // second level reference, ref.ref...
-        } while (ref2 !=null /*&& ref2.get_isThis() !=null*/ && refVar == null);
-        //
-        if(refVar !=null ) {
-          String refName = refVar.get_variableName();
-          if(refName.equals("time")) {
-            return null;                                   // reference time... do not use
-          }
-          if(refName.equals("mdl") || refName.equals("thism")) {                      // mdl.in.  not using operations supported yet TODO.
-            if(ref2 == null) { return null; }              // mdl.storeData() call of a module opeartion
-            refVar = ref2.get_referenceAssociation();
-            refName = refVar.get_variableName();
-            ref2 = ref2.get_reference();
-          }
-          //refName may be changed.
-          if(refName.equals("in") || refName.equals("out") ) {
-            if(mdl == null || mdl.nameInstance == null || mdl.nameInstance.length()==0) {
-              dbg = "inOut";
-              sElemJava = name;
-              sRef = "";                                   // J2Vhdl_Variable from the input part of the module, Vhdl: use the simple name
-            } else {                                       // In and Out are records from the module.
-              dbg = "inOutModule";
-              sElemJava = name;
-              sRef = mdl.nameInstance + '.' + refName + '.' ;        
-            }
-          }
-          else if(refName.equals("vhdlMdl") ) {                  // z. is the last own value, argument
-            assert(false);
-            dbg = "z";
-            sElemJava = null;
-            sRef = null;
-          }
-          else if(refName.equals("z") ) {                  // z. is the last own value, argument
-            dbg = "z";
-            sElemJava = name;
-            sRef = mdl.nameInstance + '.' + ( nameInnerClassVariable == null || nameInnerClassVariable.length()==0 ? "" : nameInnerClassVariable + '.');
-          }
-          else if(refName.equals("ref")) {                 // ref. or this.ref is the inner class ref with references
-            dbg = "ref";
-            //StringBuilder refb = new StringBuilder();      // prevent use only this. as reference
-            if(name.equals("txReq"))
-              Debugutil.stop();
-            sElemJava = XXXgenAggregation(ref2, name, mdl, oper4ifc);                   // build the used reference starting after ref, as written in Ref instance
-            sRef = ""; //refb.toString();
-          }
-          else { 
-            dbg = "elseRefname";
-            if(name.equals("Sync"))
-              Debugutil.stop();
-            sElemJava = name;
-            sRef = mdl.nameInstance + '.' + refName + '.';
-            //vhdlError("reference with >>" + refName + "<< not supported.");  sRef = "??."; 
-          }
-        }
-        else {                                             //nothing, reference without variable may be only this.
-          dbg = "refVarNull";
-          sElemJava = name;
-          sRef = mdl.nameInstance + "." + ( nameInnerClassVariable == null || nameInnerClassVariable.length()==0 ? "" : nameInnerClassVariable + '.');
-        }
-        //else { vhdlError("reference only with a variable possible", ref);  sRef = "??."; }
-      } else {                                             //no reference given, it is inside the own process class.
-        dbg="refnull";
-        sElemJava = name;
-        sRef = mdl.nameInstance + "." + ( nameInnerClassVariable == null || nameInnerClassVariable.length()==0 ? "" : nameInnerClassVariable + '.');          
-      }
-      J2Vhdl_Variable varDescr = this.fdata.idxProcessVars.get(sElemJava);
-      final String sElemJava2 = sRef + sElemJava;
-      if(varDescr == null) {
-        varDescr = this.fdata.idxVars.get(sElemJava2);
-      } else {
-        Debugutil.stop();                  // a local PROCESS variable
-        
-      }
-      if(varDescr == null) {
-        J2Vhdl_ConstDef cvar = this.fdata.idxConstDef.get(sElemJava2);
-        if(cvar !=null) {
-          varDescr = cvar.var;
-        }
-      }
-      if(varDescr == null) {
-        vhdlError("unknown variable >>" + sElemJava + "<< :" + dbg, val);
-        return null;
-      } else {
-        return varDescr;
-      }
-    }
-  }
-
-
-
-  
-  String XXXgenAggregation ( JavaSrc.Reference ref, String name, J2Vhdl_ModuleInstance mdl, boolean oper4ifc) {
-    JavaSrc.SimpleVariable var = ref.get_referenceAssociation();
-    if(var ==null) { 
-      vhdlError("ref.NAME missing", ref); 
-      return "??";
-    }
-    else {
-      String refVar = var.get_variableName();
-      J2Vhdl_ModuleInstance.InnerAccess aggrModule = mdl.idxAggregatedModules.get(refVar);
-      String instanceVar;
-      if(aggrModule != null) {
-        instanceVar = aggrModule.mdl.nameInstance;
-        if(oper4ifc) {
-          String access = XXXevalIfcOper(instanceVar, aggrModule.mdl, name, 0);
-          if(access !=null) {
-            return access;
-          } else {
-            vhdlError("interface operation not found: ", ref);
-          }
-        } else {                                           // if the access is not given, then access via variable access,
-          Debugutil.stop();
-        }
-      } else {                                             // it is the following algorithm.
-        instanceVar = refVar;                              // if no association found between internal ref name and reference association, use internal ref.
-      }
-      JavaSrc.Reference ref2 = ref.get_reference();        // more references, append it.
-      if(ref2 !=null) {                                    // ref.refVar.INNER_CLASS in second state
-        JavaSrc.SimpleVariable var2 = ref2.get_referenceAssociation();
-        String refVar2 = var2.get_variableName();
-        return instanceVar + "." + refVar2 + "." + name;
-      } else {
-        return instanceVar + "." + name;
-      }
-    }
-  }
-  
-  
-  
-  
-  String XXXevalIfcOper ( String instanceVar, J2Vhdl_ModuleInstance aggrModule, String nameOper, int recursion) {
-    String access = aggrModule.type.XXXidxIfcOperation.get(nameOper);
-    if(access !=null) {                              // only if the access is found, use it.
-      if(access.startsWith("#")) {
-        return access.substring(1);                  // #ModuleType_ConstName
-      } else if(access.endsWith("()")) {             // ref.operation()
-        int posDot = access.lastIndexOf('.');
-        String nameRef = access.substring(1, posDot);
-        String nameOper2 = access.substring(posDot+1, access.length()-2);
-        J2Vhdl_ModuleInstance.InnerAccess aggr2 = aggrModule.idxAggregatedModules.get(nameRef);
-        return XXXevalIfcOper(nameRef, aggr2.mdl, nameOper2, recursion +1);
-      } else {
-        return instanceVar + access;
-      }
-    } else {
-      return null;
-    }
-  }
-  
-  
-  
-  
-  
-  
   GenOperation getBitsShR = new GenOperation() {
     @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       final JavaSrc.Expression exprLeftBit = iArgs.next();
@@ -954,7 +759,9 @@ public class VhdlConv {
       final JavaSrc.Expression exprLeftBitPos = iArgs.next();
       int leftBitPos = getIntFromExpr(exprLeftBitPos);
       final JavaSrc.Expression exprSrc = iArgs.next(); // it has 2 arguments, get first
-      J2Vhdl_Variable descrVar = XXXgetVariableAccess(exprSrc.get_value(), mdl, nameInnerClassVariable);
+      VhdlExprTerm variable = genExprOnePart(exprSrc, mdl, nameInnerClassVariable);     // first argument variable
+      J2Vhdl_Variable descrVar = variable.variable();
+      //J2Vhdl_Variable descrVar = XXXgetVariableAccess(exprSrc.get_value(), mdl, nameInnerClassVariable);
       if(descrVar == null) {
         vhdlError("variable not found: " + exprSrc.toString(), exprSrc);
       }
@@ -1010,7 +817,9 @@ public class VhdlConv {
   GenOperation getBitsShL = new GenOperation() {
     @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       final JavaSrc.Expression exprSrc = iArgs.next(); // it has 2 arguments, get first
-      J2Vhdl_Variable descrVar = XXXgetVariableAccess(exprSrc.get_value(), mdl, nameInnerClassVariable);
+      VhdlExprTerm variable = genExprOnePart(exprSrc, mdl, nameInnerClassVariable);     // first argument variable
+      J2Vhdl_Variable descrVar = variable.variable();
+      //J2Vhdl_Variable descrVar = XXXgetVariableAccess(exprSrc.get_value(), mdl, nameInnerClassVariable);
       assert(descrVar !=null);                         // ( 15 DOWNTO 0) if nrofBits = 17 for ex. vector(16 DOWNTO 0)
       exprDst.b.append(descrVar.sElemVhdl);
       final JavaSrc.Expression exprNrBitsShift = iArgs.next();
