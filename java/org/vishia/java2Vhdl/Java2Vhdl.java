@@ -34,6 +34,8 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-22 in {@link #gatherAllVariables()}: also in the top level process classes ( {@link Fpga#} annotation VHDL_PROCESS) 
+   *   is possible now, gather the variables also in the top level. 
    * <li>2022-08-07 in {@link #associateActualWithTypeArgumentRefs(J2Vhdl_ModuleInstance, org.vishia.java2Vhdl.parseJava.JavaSrc.ActualArguments, Iterator)}
    *   Association improved, with associations of inner modules gotten from Ref.
    * <li>2022-08-04 in {@link #genVhdlCall(StringBuilder)}: Now also generates statements to prepare the inputs.
@@ -72,7 +74,7 @@ public class Java2Vhdl {
    * <li>descr: Change of description of elements.
    * </ul> 
    */
-  public static final String sVersion = "2022-08-07";
+  public static final String sVersion = "2022-08-22";
 
   
   
@@ -1134,7 +1136,7 @@ public class Java2Vhdl {
       if(type.isTopLevel()) {
         final String nameProcess = nameModule;
         this.vhdlConv.setInnerClass(nameProcess, nameModule);              // records from all inner classes, same name as type
-     //   this.vhdlConv.mapInOutVariables(type.moduleClass);
+        gatherAllVariablesOfSubClasses(type.moduleClass, nameModule, false);
       } else if(module.bInOutModule) {
         final String nameProcess = nameModule;
         this.vhdlConv.setInnerClass(nameProcess, nameModule);              // records from all inner classes, same name as type
@@ -1487,9 +1489,9 @@ public class Java2Vhdl {
           String nameiClass = iclass.get_classident();
           if(sAnnot !=null && sAnnot.startsWith("Fpga.LINK_VHDL_MODULE")) {            // it is an inner class for a VHDL RECORD and PROCESS
             //
-            JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass); // which is designated with @Fpga.CTOR_PROCESS
-            if(ctor !=null) {
-              String nameVhdlMdl = sModule  + "_" + nameiClass + "_" + "vhdlMdl";                      // search that ctor of the class
+            JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass); // search that ctor of the class
+            if(ctor !=null) {                              // which is designated with @Fpga.CTOR_PROCESS
+              String nameVhdlMdl = sModule  + "_" + nameiClass + "_" + "vhdlMdl";                      
               String nameInnerClassVariable = Character.toLowerCase(nameiClass.charAt(0))+ nameiClass.substring(1);
               String vhdlMdlType = null; 
               for(JavaSrc.Argument arg : ctor.get_argument()) {

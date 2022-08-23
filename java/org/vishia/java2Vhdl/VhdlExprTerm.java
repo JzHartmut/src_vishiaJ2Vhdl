@@ -331,7 +331,7 @@ public final class VhdlExprTerm extends SrcInfo {
     if(VhdlConv.d.dbgStopEnable) {
       int[] linecolmn = new int[2];
       String sFile = part.getSrcInfo(linecolmn);
-      dbgStop = sFile.contains("CrcGeneratorSerial.java") && linecolmn[0] >= 36 && linecolmn[0] <= 36;
+      dbgStop = sFile.contains("FpgaTop_SpeA.java") && linecolmn[0] >= 229 && linecolmn[0] <= 229;
       if(dbgStop)
         Debugutil.stop();
     }
