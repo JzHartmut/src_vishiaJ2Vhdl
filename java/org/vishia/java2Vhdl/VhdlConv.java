@@ -352,7 +352,7 @@ public class VhdlConv {
       if(this.dbgStopEnable) { 
         int[] lineColumn = new int[2];
         String file = exprRpn.getSrcInfo(lineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
-        if(file.contains("FpgaTop_SpeA.java") && lineColumn[0] >= 192 && lineColumn[0] <= 195) {
+        if(file.contains("SpiMaster.java") && lineColumn[0] >= 326 && lineColumn[0] <= 328) {
           Debugutil.stop();
           bStopExprPart = true;
       } }

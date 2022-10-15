@@ -121,6 +121,10 @@ public final class VhdlExprTerm extends SrcInfo {
     }
   }
   
+  /**Array of conversion between types. 
+   * Columns are adequate to the lines. fromUndef, frombitType etc.
+   * % is the placeholder for the original expression.
+   */
   static final String[] convToUndef       = {null, null, null, null,null, null, null, null,null, null, null, null, null};
   static final String[] convTobitType     = {null, null, "TO_BIT(%)", null,"?bitv2bit", "?stdv2bit", "?constv2bit", "?state2bit","?bool2bit", "?ubool2bit", "?int2bit", "uint2bit", "?numConst2bit"};
   static final String[] convTostdType     = {null, "TO_STDULOGIC(%)", null, null, "?bitv2std", "?stdv2std", "?constv2std", "?state2std","?bool2std", "?ubool2std", "?int2std", "uint2std", "?numConst2std"};
@@ -129,7 +133,7 @@ public final class VhdlExprTerm extends SrcInfo {
   static final String[] convTostdVtype    = {null, null, null, null,"TO_STDLOGICVECTOR(%)", null, null, null,null, null, null, null, null};
   static final String[] convTobitStdVconst= {null, null, null, null,null, null, null, null,null, null, null, null, null};
   static final String[] convTostateBit    = {null, null, null, null,null, null, null, null,null, null, null, null, null};
-  static final String[] convToboolType    = {null, "(%1)='1'", "(%1)='1'", null,null, null, null, null,null, null, null, null, null};
+  static final String[] convToboolType    = {null, "(%)='1'", "(%)='1'", null,null, null, null, null,null, null, null, null, null};
   static final String[] convToboolUncompl = {null, null, null, null,null, null, null, null,null, null, null, null, null};
   static final String[] convTointtype     = {null, null, null, null,null, null, null, null,null, null, null, null, null};
   static final String[] convTouinttype    = {null, null, null, null,null, null, null, null,null, null, null, null, null};
