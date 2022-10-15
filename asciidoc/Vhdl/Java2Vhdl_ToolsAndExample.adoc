@@ -179,7 +179,7 @@ You can also use any text editor to view the sources.
 To compile and run the example independent of an IDE you can use the batch file compilation.
 But you need he `javac` compiler (part of JDK, Java Development Kit, link:https://www.oracle.com/java/technologies/downloads/[].
 
-Look at `src/main/java/srcJava_FpgaExmplBlinkingLed/_make/+makejar_exmplBlinkingLedFpga.sh`.
+Look at `src/exmpl_vishiaJ2Vhdl_BlinkingLed/java/_make/+makejar_exmplBlinkingLedFpga.sh`.
 
 The compile result will be written in the `build` folder. From there it can be run starting `src/test/bat/test_Example1_BlinkingLed.bat`.
 This is for your experience.
@@ -190,7 +190,7 @@ This is for your experience.
 This is only the start of a command line execution, for the example:
 
 ----
- java -cp tools/vishiaBase.jar;tools/vishiaVhdlConv.jar org.vishia.java2Vhdl.Java2Vhdl -sdir:src/main/java/srcJava_FpgaExmplBlinkingLed -sdir:src/main/java/srcJava_vishiaFpga org.vishia.fpga.exmplBlinkingLed.fpgatop.BlinkingLed_Fpga -o:build/BlinkingLed_Fpga.vhd -tmp:build/ -rep:build/BlinkingLed2Vhdl_report.txt
+ java -cp tools/vishiaBase.jar;tools/vishiaVhdlConv.jar org.vishia.java2Vhdl.Java2Vhdl -sdir:src/exmpl_vishiaJ2Vhdl_BlinkingLed/java -sdir:src/main/java/srcJava_vishiaFpga org.vishia.fpga.exmplBlinkingLed.fpgatop.BlinkingLed_Fpga -o:build/BlinkingLed_Fpga.vhd -tmp:build/ -rep:build/BlinkingLed2Vhdl_report.txt
 ----
  
 This is a very long line because of the arguments, not obviosly.
@@ -200,7 +200,7 @@ Therefore a better solution is possible, given in the example:
 java -cp tools/vishiaBase.jar;tools/vishiaVhdlConv.jar org.vishia.java2Vhdl.Java2Vhdl --@%0:convArgs 
 REM info: one space after the label, then trim all trailing spaces also without comment
 ::convArgs ##             
-::-sdir:src/main/java/srcJava_FpgaExmplBlinkingLed            ##source dirs from current
+::-sdir:src/exmpl_vishiaJ2Vhdl_BlinkingLed/java            ##source dirs from current
 ::-sdir:src/main/java/srcJava_vishiaFpga  
 ::-top:org.vishia.fpga.exmplBlinkingLed.fpgatop.BlinkingLed_Fpga   ##top level file to translate in first source dir
 ::-o:build/BlinkingLed_Fpga.vhd                               ##output
@@ -351,7 +351,7 @@ must be written starting with a lower case character.
 .Java: top level class definition
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=theClassDef]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=theClassDef]
 ----
 
 The `import` statements name all used classes from other packages. It is possible to use an asterisk to select all Files in the package. 
@@ -377,7 +377,7 @@ The class definition continues with the
 .Java: used modules in the top level
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=Modules]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=Modules]
 ----
 
 The modules are aggregated together as described in link:Java2Vhdl_Approaches.html#aggr[Java2Vhdl Approaches, chapter More possibilities with Java2VHDL: References (aggregations) in Object Orientation kind].
@@ -406,7 +406,7 @@ Following the both routines are defined:
 .Java: top level class step update
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=step_update]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=step_update]
 ----
 
 See also link:Java2Vhdl_Approaches.html#stepupd[]
@@ -423,7 +423,7 @@ They are usable for referencing.
 .Java: top level class interface agent/access
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=time_BlinkingLed_ifcAccess]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=time_BlinkingLed_ifcAccess]
 ----
 
 In the top level they should be used either for stubs instead not implemented modules, for test designs or variations,
@@ -459,7 +459,7 @@ The pin description file should be designated as [J]`ioPins` in the [J]`Modules`
 .Java: ioPins definition in the top level
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=ioPins]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=ioPins]
 ----
 
 See also chapter <<#topModules>>.
@@ -472,7 +472,7 @@ The ioPins file starts due to Java conventions with
 .Java: BlinkingLed_FpgaInOutput class definition head
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=classdef]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=classdef]
 ----
 
 ==== Input and Output inner classes
@@ -482,7 +482,7 @@ For this example the pin classes are short, for more pins it is a little bit mor
 .Java: BlinkingLed_FpgaInOutput Input and Output
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=InOutput]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=InOutput]
 ----
 
 * If the same pin should be used both as input and output, then the same pin name should be defined in the [J]`Input` and in the [J]`Output` inner class.
@@ -499,7 +499,7 @@ The output pins are written immediately in the [J]`update()` operation on the to
 .Java: top level class using interface implementation and simple access operation for output
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=outPins]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=outPins]
 ----
 
 
@@ -520,7 +520,7 @@ In this example only the access to the only one [J]`reset_Pin` is necessary
 .Java: BlinkingLed_FpgaInOutput Interface access
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=ifcAccess]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=ifcAccess]
 ----
 
 This uses the [J]`Reset_Inpin_ifc` as used in the accessing module `org.vishia.fpga.stdmodules.Reset`, 
@@ -532,7 +532,7 @@ It is a good decision for overview (divide and conquer) to write this set operat
 .Java: BlinkingLed_IoAcc for test, the whole file:
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_IoAcc.java[]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_IoAcc.java[]
 ----
 
 
@@ -542,7 +542,7 @@ include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBl
 === A module file
 
 All following code snippets comes from the 
-`main/java/srcJava_FpgaExmplBlinkingLed/
+`exmpl_vishiaJ2Vhdl_BlinkingLed/java/
 org/vishia/fpga/modules/BlinkingLedCt.java`.
 
 [#mdlclass]
@@ -553,7 +553,7 @@ The principles in Java are already explained in <<#topclass>>.
 .Java: module class definition
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=theClassDef]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=theClassDef]
 ----
 
 Here the advantage of dependency documentation of the `import` statements are shown. 
@@ -576,7 +576,7 @@ The class definition continues with the
 .Java: module class references
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Ref]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Ref]
 ----
 
 The meaning and the writing style of the references is also explained in link:Java2Vhdl_Approaches.html#aggr[].
@@ -594,7 +594,7 @@ The following code snippet shows one PROCESS as a whole.
 .Java: module PROCESS class and instances
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Prc]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Prc]
 ----
 
 This is the core functionality for VHDL and hence explained elaborately:
@@ -603,7 +603,7 @@ This is the core functionality for VHDL and hence explained elaborately:
 * Variables in the inner class are generated in a type record with the class name:
 
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=BlinkingLedCt_Q_REC]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=BlinkingLedCt_Q_REC]
 ----
 
 * Variables started with [J]`time` are ignored for VHDL conversion, there are for timing test on Java level.
@@ -624,7 +624,7 @@ Here for the usage in the `fpgatop/BlinkingLed_Fpga.java`:
 .Vhdl: SIGNAL definition for this PROCESS of a module:
 [source,Vhdl]
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=RecordSignals]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=RecordSignals]
 ----
 
 * You can see in the mid of this three signals the module name [J]`ct` from the module definition in [J]`Modules`
@@ -656,7 +656,7 @@ It can be accessed anyway only in this module because of the `private` nature of
 .Vhdl: PROCESS due to the BlinkingLedCt.Q constructor:
 [source,Vhdl]
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC]
 ----
 
 ** Variable with [J]`time...` are ignored for VHDL, they are for timing checks in Java.
@@ -700,7 +700,7 @@ It is not used for the VHDL translation, but for the test.
 .Java: module class step and update
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=step_update]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=step_update]
 ----
 
 See also link:Java2Vhdl_Approaches.html#stepupd[]
@@ -728,7 +728,7 @@ The next code snippet shows two accesses:
 .Java: module class interface implementation and simple access operation
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=mdlifcimpl]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=mdlifcimpl]
 ----
 
 The first operation with the annotation [J]`@Override` overrides the declaration in the [J]`BlinkingLed_ifc`, see chapter <<mdlclass>>.
@@ -744,7 +744,7 @@ It is used on the top level of the FPGA for the outputs in the [J]`update()` ope
 .Java: top level class using interface implementation and simple access operation for output
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=outPins]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=outPins]
 ----
 
 
@@ -758,7 +758,7 @@ They are usable for referencing.
 .Java: module class interface agents/access
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=mdlifcacc]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=mdlifcacc]
 ----
 
 See the example in the top level, chapter <<#topifcacc>>
@@ -779,7 +779,7 @@ TestSignalRecorderHead
 .Java: module class TestSignalRecorder class definition
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=TestSignalRecorderHead]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=TestSignalRecorderHead]
     ....
   }
 ----
@@ -931,7 +931,7 @@ Look firstly to that `org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.jav
 .Java: main test routine class definition
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=classDef]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=classDef]
 ----
 
 You see on the depedencies ([J]`import` statements) that the test does not need knowledge about the modules.
@@ -952,7 +952,7 @@ The horizontal output recorder is an instance of link:../../docuSrcJava_vishiaFp
 .Java: output recorder instance and definiton in start of a test routine
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=outH]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=outH]
 ----
 
 The instance should be created new in any test routine for that test outputs.
@@ -972,7 +972,7 @@ The next line shows only the creation of a test check support class, see link:..
 .Java: Instance of TestOrg in the test routine
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=TestOrg]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=TestOrg]
 ----
 
 This class helps to organize some tests with a concise output for automatic test case evaluation.
@@ -986,7 +986,7 @@ This are the initials settings of all input pins. It can be set either immediate
 .Java: Initialization stimulis / signals
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=initStimuli]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=initStimuli]
 ----
 
 For this example only the reset pin is used. For the test it is hold to inactive high during the whole operation. 
@@ -1004,7 +1004,7 @@ The basic step time is the clock.
 .Java: statements to run the test
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=runSimul]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=runSimul]
 ----
 
 To simulate the FPGA(s) the appropriate [J]`step(time)` one after another and after them all [J]`update()` should be called. 
@@ -1031,7 +1031,7 @@ in the order of registering. The output written to a text file can be edited for
 .Java: output signals of horizontal recording usual for manually elaboration
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=outRecording]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=outRecording]
 ----
 
 It is also possible to produce output signals in a file with vertical recording (one line is one time stamp, signals in the line).
@@ -1050,7 +1050,7 @@ not from beginning, because elsewhere the minimal number of characters may be vi
 .Java: evaluation of test results for automatically test
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=testEval]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=testEval]
 ----
 
 This test is programmed done. It produces with the following [J]`test.finish()` a concise state "__Test ok or ERROR__" 
@@ -1079,7 +1079,7 @@ The top level [J]`TestOrg` assembles all children [J]`TestOrg` for more tests an
 .Java: TestSignalGenerator implementation complete for conditional output
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=main]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=main]
 ----
 
 Generally a [J]`try ... catch` should be present to catch non expected exceptions. 
@@ -1101,7 +1101,7 @@ The code snippet shows the complete [J]`TestSignalRecorder`
 .Java: TestSignalRecorder implementation complete for conditional output
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=TestSignals]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/test/Test_BlinkingLed.java[tag=TestSignals]
 ----
 
 * The Recorder should define StringBuilder for each test signal for store and output, here two lines.
@@ -1141,7 +1141,7 @@ This is the interesting point in the module, and may be also the interesting poi
 .Java: TestSignalGenerator addSignals(...) with condition building
 [source,Java]
 ----
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=addSignals]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=addSignals]
 ----
 
 Here the output is triggered if the counter reaches the value 1, back counting before zero-crossing. 

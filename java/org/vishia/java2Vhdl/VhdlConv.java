@@ -458,7 +458,7 @@ public class VhdlConv {
           String cond = exprLeft.b.toString();             // The exprLeft contains till now the condition term. 
           exprLeft.b.setLength(0);                         // clear exprLeft, use as destination
           VhdlExprTerm.ExprType assignType1 = assignType !=null ? assignType : exprLeft.exprType_;
-          genTrueFalse(exprLeft.b, assignType1, cond, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
+          genTrueFalse(exprLeft.b, assignType1, cond, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm, bStopExprPart);
           exprLeft.exprType_.set(assignType1);             // The expression represents the trueFalseValue, with this type.   
           if(out !=null) { out.append(indent).append(exprLeft.b); }
         }
@@ -488,8 +488,10 @@ public class VhdlConv {
   private void genTrueFalse ( Appendable out, VhdlExprTerm.ExprType typeLeft, CharSequence cond, JavaSrc.ExprPart partTrueFalse_a
       , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
       , boolean bInsideProcess, CharSequence indent
-      , CharSequence assignTerm
+      , CharSequence assignTerm, boolean dbgStop
       ) throws Exception {
+    if(dbgStop)
+      Debugutil.stop();
     JavaSrc.ExprPartTrueFalse partTrueFalse = (JavaSrc.ExprPartTrueFalse) partTrueFalse_a;
     StringBuilder sExprTrue = new StringBuilder();        // Note: assignTerm is the left side assignment variable with assign operator
     StringBuilder sExprFalse = new StringBuilder();
@@ -553,7 +555,7 @@ public class VhdlConv {
     if(this.dbgStopEnable) { 
       int[] lineColumn = new int[2];
       String file = part.getSrcInfo(lineColumn);
-      dbgStop |= file.contains("TxSpe") && lineColumn[0] >= 212 && lineColumn[0] <= 218;
+      dbgStop |= file.contains("SpiMaster") && lineColumn[0] >= 319 && lineColumn[0] <= 320;
     }
     if(dbgStop) {
       Debugutil.stop();
@@ -657,7 +659,7 @@ public class VhdlConv {
         exprRight.convertToBool();                         // need bool in IF() or WHEN()
         StringBuilder assignTerm = new StringBuilder(exprLeft.b);
         assignTerm.append(" ").append(sOpVhdl);
-        genTrueFalse(out, typeVar, exprRight.b, partTrueFalse, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm);
+        genTrueFalse(out, typeVar, exprRight.b, partTrueFalse, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm, dbgStop);
         if(out != exprLeft.b) { appendLineColumn(out, exprLeft); }
       }
       else if(typeVar.etype == VhdlExprTerm.ExprTypeEnum.stdtype && exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype) {

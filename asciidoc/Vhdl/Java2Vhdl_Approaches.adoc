@@ -60,7 +60,7 @@ Also the simulation of hardware designs needs often special tools.
 Test approaches with comprehensive functional tests are a special topic. 
 
 For all that reasons another way to formulate 
-hardware design content inclusively timing constraints were searched.
+hardware design content inclusively timing constraints was searched.
 
 This article offers the idea to formulate hardware design with timing constraints
 and elaborately possible functional tests, in Java language.
@@ -104,7 +104,8 @@ A microcontroller can react in step times down to ~ 10 µs. 50 µs are often usu
 For faster especially controlling algorithm with step times of ~ 1 µs the usage of FPGAs becomes more and more familiar,
 because the FPGA have enough space, are no more so expensive with much space and the tool suites are more and more proper.
 
-The approach b) is not handled here. They are other approaches such as link:https://hdl.github.io/awesome/items/synthesijer/[]
+The approach b) is not handled here. They are other tools such as 
+link:https://hdl.github.io/awesome/items/synthesijer/[]
 or programming FPGA in {cpp} (known since ~ 2005) which fulfill this approaches.
 
 This work is related to pure hardware logic.
@@ -171,7 +172,7 @@ This property of Java can be used to write a clean code.
 But the `final` approach regarding the old (current) states and new states can be only used in the constructors of a class (construction of the instance).
 Applicated to the above shown `step(); update()` approach it means:
 
-* The `step()` create a new instance using the `final` approach. The new instance is not used for other `step()`.
+* The `step()` create a new instance invoking the constructor and using the `final` approach for all instance variables. The new instance is not used for other `step()`.
 * The `update()` copies the new calculated values in the new instances to the current one. 
 In Java all variable to instances are references. Hence it means, the new instances are created with `new` in the heap, 
 and referenced with an own reference,
@@ -636,13 +637,13 @@ Example start of an inner class in a module MyModule.java:
 [source,Java]
 ----
 //fpga/exmpl/modules/ClockDivider.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/ClockDivider.java[tag=Q-data]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/ClockDivider.java[tag=Q-data]
 ----
 
 Builds the record in VHDL:
 
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=ClockDivider_Q_REC]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=ClockDivider_Q_REC]
 ----
 
 The RECORD is instantiated, here with one instance, but also more as one instances are possible:
@@ -655,7 +656,7 @@ In VHDL from inside any PROCESS a variable of another module (RECORD instance) c
 because of the flattened form with RECORDS.
 
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC-ce]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC-ce]
 ----
 
 That is possible because of the flattened property. 
@@ -670,7 +671,7 @@ But instead, the Java sources can work with aggregations. The adequate line in J
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ce]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ce]
 ----
  
 * In Java the access is not done immediately to the variable in the other class. Instead a reference `ref.clkDiv` is used.
@@ -687,7 +688,7 @@ Any module can contain a `Ref` class with a `Ref ref` instance, here:
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Ref]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Ref]
 ----
 
 That are aggregations in UML wording (Unified Modeling Language for Object Orientated software technology). 
@@ -702,8 +703,8 @@ The constructor of the `Ref` have to be called in the constructor of the module,
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=ctor]
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=init]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=ctor]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=init]
 ----
 
 Here it is important that the name of the arguments in the constructor is the same as the name of the aggregation reference
@@ -716,7 +717,7 @@ For that there is a `Modules` inner class:
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=Modules]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=Modules]
 ----
 
 Here three modules are defined which are used in the top level of the FPGA. 
@@ -728,7 +729,7 @@ arguments of the constructor and arguments in the associated `init(...)`, not sh
 The name of the modules (the composite reference name in Java) build the name of the RECORD instances in VHDL:
 
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=RecordSignals]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=RecordSignals]
 ----
 
 On translation from Java to VHDL an index (TreeMap in Java) is built for each module 
@@ -736,7 +737,7 @@ which associates the intern name of a reference to a module with the real used m
 This index is internally used for translation, but also reported in the report file (option `-rep:path/to/file.txt`)
 
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed2Vhdl_report.txt[tag=ct-Ref]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed2Vhdl_report.txt[tag=ct-Ref]
 ----
 
 Now, while generating the `PROCESS` for the module `ct`, this association index is used 
@@ -787,7 +788,7 @@ Look to another part of the example:
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ifcUsg]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ifcUsg]
 ----
 
 This is a snippet from the `BlinkingLedCt PROCESS` in Java:
@@ -802,7 +803,7 @@ The translated VHDL design looks like:
 .VHDL: generated code of interface usage
 [source,VHDL]
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC-ifcUsg]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC-ifcUsg]
 ----
 
 Here the relations to the reset signal and the reload value is full clarified:
@@ -812,7 +813,7 @@ and the reload value is defined as constant in the VHDL code above:
 .VHDL: constant definition due to interface operations
 [source,VHDL]
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=BlinkingLedConstants]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=BlinkingLedConstants]
 ----
 
 But in another usage configuration of the same module, without change of the Java code of the module, 
@@ -840,7 +841,7 @@ Look on the definition of all references for input values from outside of the `B
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Ref]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Ref]
 ----
 
 As you see, the type of the [J]`ref.reset` is [J]`Reset_ifc`, as also the type of [J]`ref.cfg` is [J]`BlinkingLedCfg_ifc`.
@@ -850,7 +851,7 @@ Look firstly to the defintion of the [J]`Reset_ifc`:
 [source,Java]
 ----
 //fpga/exmpl/stdmodules/Reset_ifc.java
-include::../../../main/java/srcJava_vishiaFpga/org/vishia/fpga/stdmodules/Reset_ifc.java[]
+include::../../../vishiaFpga/java/org/vishia/fpga/stdmodules/Reset_ifc.java[]
 ----
 
 Using of interfaces is very proven in Java (as also another Object Orientated Languages),
@@ -866,7 +867,7 @@ The association for [J]`ref.reset` is set on construction. For this example the 
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=init]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=init]
 ----
 
 This operation creates the [J]`Ref` instance and sets the references with the outside given reference to the implementor, the supplier for this signal with the interface type.
@@ -879,7 +880,7 @@ The connection is done in the [J]`Moduls` class on top level:
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=Modules]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=Modules]
 ----
 
 Here you see the invocation of the [J]`init(...)` operation with the first argument [J]``this.res`. 
@@ -905,9 +906,9 @@ The [J]`Reset` module in Java implements the interface on module level:
 [source,Java]
 ----
 //fpga/exmpl/stdmodules/Reset.java
-include::../../../main/java/srcJava_vishiaFpga/org/vishia/fpga/stdmodules/Reset.java[tag=classdef]
+include::../../../vishiaFpga/java/org/vishia/fpga/stdmodules/Reset.java[tag=classdef]
   .....
-include::../../../main/java/srcJava_vishiaFpga/org/vishia/fpga/stdmodules/Reset.java[tag=reset()]
+include::../../../vishiaFpga/java/org/vishia/fpga/stdmodules/Reset.java[tag=reset()]
 ----
 
 It's very simple: It accesses the variable [J]`res` in its own inner class [J]`q` 
@@ -920,7 +921,7 @@ Hence the result is the already above shown VHDL code:
 .VHDL: generated code of interface usage
 [source,VHDL]
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC-ifcUsg]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC-ifcUsg]
 ----
 
 Generally, only the term of the [J]`return` statement is evaluated. 
@@ -963,9 +964,9 @@ On the other hand it can be designated as __access point__.
 [source,Java]
 ----
 //fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=classdef]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=classdef]
 .....
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=ifcAccess]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_FpgaInOutput.java[tag=ifcAccess]
 ----
 
 Such an anonymous class instance or agent is shown here for the access to the reset pin itself. 
@@ -1023,7 +1024,7 @@ For the Blinking Led example this is done with timing parameters:
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ifcUsg]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ifcUsg]
 ----
 
 The request is adequate, a value should be accesses. It is not first intendet that this is a constant value.
@@ -1048,7 +1049,7 @@ also with an access instance:
 [source,Java]
 ----
 //fpga/exmpl/modules/Fpga_BlinkingLed.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=time_BlinkingLed_ifcAccess]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/fpgatop/BlinkingLed_Fpga.java[tag=time_BlinkingLed_ifcAccess]
 ----
 
 The essence is:
@@ -1059,7 +1060,7 @@ The result is (already shown above):
 .VHDL: constant definition due to interface operations
 [source,VHDL]
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=BlinkingLedConstants]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=BlinkingLedConstants]
 ----
 
 The advantage of building a constant element instead the immediately constant value is: It is obvious in VHDL. 
@@ -1131,7 +1132,7 @@ Both alternatives are then stored module-type-related in
 On translation this table is reported in the `-rep:reportfile.txt` for this example as:
 
 ----
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed2Vhdl_report.txt[tag=Type-Reset]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed2Vhdl_report.txt[tag=Type-Reset]
 ----
 
 
@@ -1172,6 +1173,132 @@ That is all possible on Java level, not translated to VHDL.
 For VHDL anytime the simple access to the record signal with the same name as the access operation is translated.
 
  
+== Including existing VHDL files
+
+There are two reasons to include a given VHDL file in the generated sources:
+
+* a) Existing reused modules
+* b) Often the tools for FPGA design have features to generate VHDL files for specific features, 
+for example for a RAM block.
+
+VHDL is the standard for FPGA design (beside Verilog), hence VHDL is necessary to include.
+
+For simulation on Java level, the functionality of the VHDL code should be emulated. 
+For example for a RAM module this should be simple. 
+You may also only simulate only the basically functionality to fulfill the interface to the module. 
+
+The Java class for the given VHDL file to include it in the Java sources should start with the annotation:
+
+.Java: class definition for given VHDL file
+[source,Java]
+----
+@Fpga.VHDL_MODULE public class RAM_SpiRamSel implements FpgaModule_ifc {
+----
+
+The port definition should be written as:
+
+.Java: port definition for given VHDL file
+[source,Java]
+----
+  public static class Input {
+    public @Fpga.STD_LOGIC boolean Clock;
+    public @Fpga.STD_LOGIC boolean ClockEn;
+    public @Fpga.STD_LOGIC boolean Reset;
+    public @Fpga.STD_LOGIC boolean WE;
+    public @Fpga.STDVECTOR(7) int Address;
+    public @Fpga.STDVECTOR(8) int Data;
+  }
+  
+  public static class Output {
+    public @Fpga.STDVECTOR(8) int Q;
+  }
+  
+  public Input input = new Input();
+  public Output output = new Output();
+----
+
+This is for the example with the RAM block VHDL. Its original VHDL port definition is:
+
+.VHDL: port definition in the given VHDL file
+[source,VHDL]
+----
+entity RAM_SpiRamSel is
+    port (
+        Clock: in  std_logic; 
+        ClockEn: in  std_logic; 
+        Reset: in  std_logic; 
+        WE: in  std_logic; 
+        Address: in  std_logic_vector(6 downto 0); 
+        Data: in  std_logic_vector(7 downto 0); 
+        Q: out  std_logic_vector(7 downto 0));
+end RAM_SpiRamSel;
+----
+
+The rest of the class file contains the emulation of the functionality in any desired kind,
+for your own and responsible, without influence to the Java2VHDL translation. 
+The `step(...)` and the `update()` operation should be overridden from the `FpgaModule_ifc`
+as given in the `class` definition and due to the general approaches for simulation. 
+
+For usage of the module in a Java2VHDL generated Java source it needs an inner class
+with annotation:
+
+.Java: usage of given VHDL file in Java code for generation, inner class
+[source,Java]
+----
+  @Fpga.LINK_VHDL_MODULE("ram") private static final class Ram{
+----
+
+Inside the class the constructor should be written in the following kind:
+
+.Java: usage of given VHDL file in Java code for generation, constructor
+[source,Java]
+----
+    @Fpga.LINK_VHDL_MODULE("ram") Ram(int time, RAM_SpiRamSel vhdlMdl, Modules modules, Ref ref, TxSpe thism) {
+      RAM_SpiRamSel vhdlMdl1 = modules.ram;
+      this.ramAddr = Fpga.getBit(ref.dcmd.wrSelectSpeSlaveToTx(), 15) ? Fpga.getBits(ref.dcmd.wrSelectSpeSlaveToTx(), 14, 8) : Fpga.getBits(thism.frameSelect.ctData,9,3);
+      vhdlMdl.input.Clock = Fpga.clk;
+      vhdlMdl.input.ClockEn = ref.ce.ce0();
+      vhdlMdl.input.Reset = ref.res.reset(0, 0);
+      vhdlMdl.input.Address = this.ramAddr;
+      vhdlMdl.input.Data = Fpga.getBits(ref.dcmd.wrSelectSpeSlaveToTx(), 7, 0);
+      vhdlMdl.input.WE = Fpga.getBit(ref.dcmd.wrSelectSpeSlaveToTx(), 15);
+      vhdlMdl.step(time);
+      vhdlMdl.update();
+      this.ramData = vhdlMdl.output.Q;
+    }
+----
+
+The constructor works in the same time as in other processes with annotation [J]`@Fpga.VHDL_PROCESS`:
+In the [J]`step(...)` routine of the module class a [J]`this.ram_d = new Ram(...)` will be created,
+and in the update the [J]`this.ram = this.ram_d;` new instance is established for usage in the next step.
+
+For simulation the [J]`step(...)` and [J]`update()` of the [J]`@Fpga.VHDL_MODULE public class RAM...`
+is called one after another. 
+The isolation from step() and update() for a correct simulation execution is done by storing the result value
+of the VHDL module here in the [J]`ramData` internal data, 
+which is accessible only after the [J]`update()` from the wrapping [J]`@Fpga.LINK_VHDL_MODULE("ram")`.
+
+The translation to VHDL code produces the following for this example:
+
+----
+-- Assignments for VHDL instance inputs:
+txSpe_Ram.ramAddr  <= TO_STDLOGICVECTOR(data_Data.wrSelectSpeSlaveToTx(14 DOWNTO 8))  WHEN data_Data.wrSelectSpeSlaveToTx(15)='1' ELSE txSpe_FrameSelect.ctData(9 DOWNTO 3) ;
+
+txSpe_Ram_vhdlMdl: RAM_SpiRamSel
+PORT MAP( 
+  Clock =>  TO_STDULOGIC(clk) ,
+  ClockEn =>  TO_STDULOGIC(rxClkSync_Q.ce0) ,
+  Reset =>  TO_STDULOGIC(reset_Q.res) ,
+  Address =>   txSpe_Ram.ramAddr ,
+  Data =>  TO_STDLOGICVECTOR(data_Data.wrSelectSpeSlaveToTx(7 DOWNTO 0)) ,
+  WE =>  TO_STDULOGIC(data_Data.wrSelectSpeSlaveToTx(15)) ,
+  Q => txSpe_Ram.ramData  
+ );  --PORT MAP RAM_SpiRamSel
+----
+
+
+
+
 [#timeCnstrn]
 == Timing constrains for place and route
 
@@ -1188,7 +1315,7 @@ The basic in VHDL for this use case is:
 
 ----
 --From example: BlinkingLed_Fpga.vhd
-include::../../../test/testResult_Ref/Java2Vhdl/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC-ce]
+include::../../../test_vishiaJ2Vhdl/testResult_Ref/BlinkingLed_Fpga.vhd[tag=ct_Q_PRC-ce]
   --.... logic working only if ce is set
   END IF;
 ----
@@ -1201,8 +1328,8 @@ The adequate form in the Java src is similar:
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ce]
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=checktime]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ce]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=checktime]
       //.... logic working only if ce is set
     }
 ----
@@ -1236,7 +1363,7 @@ Also using an interface access (see chapter <<#ifc>> allows the assertion with t
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ifcUsg]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=Q-Process-ifcUsg]
 ----
 
 The first argument is the current time, the second one the maximal delay. The check itself is (should be) done in the interface implementing operation, 
@@ -1246,6 +1373,7 @@ The desination time group is the own, the constrain is the second argument.
 
 In the version 2022-05 the time constrains are not yet automatically generated, this is todo in the nearer future. 
 But the constrains are used for simulation, manuall written than for the place and route. 
+
 
 [#test]
 == Test
@@ -1393,7 +1521,7 @@ The algorithm in Java to sort the output for this information is not complicated
 [source,Java]
 ----
 //fpga/exmpl/modules/BlinkingLedCt.java
-include::../../../main/java/srcJava_FpgaExmplBlinkingLed/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=addSignals]
+include::../../../exmpl_vishiaJ2Vhdl_BlinkingLed/java/org/vishia/fpga/exmplBlinkingLed/modules/BlinkingLedCt.java[tag=addSignals]
 ----
    
 Generally for this example, adding a signal is only done if `clkDiv.q.ce` is true, because: 

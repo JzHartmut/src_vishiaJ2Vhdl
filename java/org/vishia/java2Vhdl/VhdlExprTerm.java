@@ -15,6 +15,10 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-10-15 chg {@link #addOperand(VhdlExprTerm, J2Vhdl_Operator, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, boolean, J2Vhdl_ModuleInstance, String)}:
+   *   The type for state comparison is now bittype, without conversion to boolean.
+   *   With them the VHDL is simplified if a result is also a bit. 
+   *   Fixed error "non proper types in expression," because faulty type of state cmp expression, now correct. 
    * <li>2022-08-07 new, {@link RefModuleInfo} separated {@link #getReferencedModule(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, J2Vhdl_ModuleInstance, String)}
    *   should be used (todo) for intermediate references in a ctor. Especially for VhdlMdl on (at)Fpga.LINK_VHDL_MODULE 
    * <li>2022-08-06 {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence, boolean)}
@@ -370,8 +374,10 @@ public final class VhdlExprTerm extends SrcInfo {
       //
       if(exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.stateBit) {
         assert(opPreced.sJava.equals("=="));
-        this.b.append("(").append(exprRight.b).append(") = '1'");  // This is only a simple access to the proper bit of the state variable vector.
-        this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.booltype;  //because it is a bit comparison instead state comparison
+        this.b.append("(").append(exprRight.b).append(")");  // This is only a simple access to the proper bit of the state variable vector.
+        this.exprType_.nrofElements = 0;
+        assert(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype);
+        this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bittype;   // a selected state by == ..State is always a simple BIT because the state vector is a BIT_VECTOR
       } else {
         if (exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype) {
           fulfillNeedBool(true);                           // convert the left side also to boolean
