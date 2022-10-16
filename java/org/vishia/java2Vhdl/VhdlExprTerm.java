@@ -26,9 +26,9 @@ public final class VhdlExprTerm extends SrcInfo {
    *   The preparation is ok, the replacement is not tested yet.
    * <li>2022-08-06 new {@link #sTypeConversions}, used in new {@link #adjustType(StringBuilder, StringBuilder, ExprType, ExprType)}, 
    *    called in {@link #addOperand(VhdlExprTerm, J2Vhdl_Operator, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, boolean, J2Vhdl_ModuleInstance, String)}
-   *    and in {@link GenStmntExpr#genTrueFalse(Appendable, ExprType, CharSequence, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, J2Vhdl_ModuleInstance, String, boolean, CharSequence, CharSequence)}.
+   *    and in {@link J2Vhdl_GenExpr#genTrueFalse(Appendable, ExprType, CharSequence, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, J2Vhdl_ModuleInstance, String, boolean, CharSequence, CharSequence)}.
    *    The problem is: nested trueFalseValues. It is necessary to offer the really left type to all nesting levels.
-   *    For that new argument 'assignType' for {@link GenStmntExpr#genExpression(Appendable, org.vishia.java2Vhdl.parseJava.JavaSrc.Expression, boolean, boolean, J2Vhdl_ModuleInstance, String, CharSequence, CharSequence, ExprType)}.  
+   *    For that new argument 'assignType' for {@link J2Vhdl_GenExpr#genExpression(Appendable, org.vishia.java2Vhdl.parseJava.JavaSrc.Expression, boolean, boolean, J2Vhdl_ModuleInstance, String, CharSequence, CharSequence, ExprType)}.  
    * <li>2022-07-28 in {@link #getVariableAccess(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleVariable, J2Vhdl_ModuleInstance, String)}:
    *   Access to {@link J2Vhdl_ModuleVhdlType#idxIOVars}  
    * <li>2022-07-28 Access to Fpga.clk as fix dirty solution.
@@ -223,7 +223,7 @@ public final class VhdlExprTerm extends SrcInfo {
   //
 
   /**Creates an empty bowl for a term (some parts of an expression.  */
-  public VhdlExprTerm(GenStmntExpr vhdlConv) {
+  public VhdlExprTerm(J2Vhdl_GenExpr vhdlConv) {
     super();
     //VhdlConv.d = vhdlConv;
     this.b = new StringBuilder(100);
@@ -238,7 +238,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * @param precedSegm
    * @param nrOperands
    */
-  public VhdlExprTerm(StringBuilder b, J2Vhdl_Operator precedSegm, ExprType type, int nrOperands, GenStmntExpr vhdlConv) {
+  public VhdlExprTerm(StringBuilder b, J2Vhdl_Operator precedSegm, ExprType type, int nrOperands, J2Vhdl_GenExpr vhdlConv) {
     super();
     //VhdlConv.d = vhdlConv;
     this.b = b;
@@ -336,7 +336,7 @@ public final class VhdlExprTerm extends SrcInfo {
       super.setSrcInfo(part);                              // store the source info from the first part
     }
     boolean dbgStop = false;
-    if(GenStmntExpr.d.dbgStopEnable) {
+    if(J2Vhdl_GenExpr.d.dbgStopEnable) {
       int[] linecolmn = new int[2];
       String sFile = part.getSrcInfo(linecolmn);
       dbgStop = sFile.contains("FpgaTop_SpeA.java") && linecolmn[0] >= 229 && linecolmn[0] <= 229;
@@ -390,7 +390,7 @@ public final class VhdlExprTerm extends SrcInfo {
         //
         //------------------------------------------       // adjust the right type to the left one
         if(!adjustType(this.b, exprRight.b, this.exprType_, exprRight.exprType_)) {
-          GenStmntExpr.vhdlError("non proper types in expression, ", part);
+          J2Vhdl_GenExpr.vhdlError("non proper types in expression, ", part);
         }
         //set the expression type resulting of the operator:
         if(opPreced.opBool.bForceToBool ) { 
@@ -444,7 +444,7 @@ public final class VhdlExprTerm extends SrcInfo {
 
 
   /**Adjusts the type while copying the content from src to dst with type adjustification.
-   * This operation is also used in {@link GenStmntExpr#genTrueFalse(Appendable, ExprType, CharSequence, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, J2Vhdl_ModuleInstance, String, boolean, CharSequence, CharSequence)}.
+   * This operation is also used in {@link J2Vhdl_GenExpr#genTrueFalse(Appendable, ExprType, CharSequence, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, J2Vhdl_ModuleInstance, String, boolean, CharSequence, CharSequence)}.
    *  
    * @param dst can be the internal {@link #b} of this. 
    * @param src can be also the internal #b of the right value
@@ -501,7 +501,7 @@ public final class VhdlExprTerm extends SrcInfo {
   public static VhdlExprTerm genExprPartValue (JavaSrc.SimpleValue val, J2Vhdl_Operator op, boolean needBool
     , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, boolean dbgStop) 
       throws Exception {
-    VhdlExprTerm thiz = new VhdlExprTerm(GenStmntExpr.d);
+    VhdlExprTerm thiz = new VhdlExprTerm(J2Vhdl_GenExpr.d);
     thiz.precedSegm = op;
     boolean bOk = thiz.addPartValue(val, needBool, mdl, nameInnerClassVariable, dbgStop);
     return bOk ? thiz : null;
@@ -551,7 +551,7 @@ public final class VhdlExprTerm extends SrcInfo {
         this.exprType_.nrofElements = 1;
       } //-------------------------------------- // now the value or variable is written in the buffer
     } catch(Throwable exc) {
-      GenStmntExpr.vhdlError("XException: " + exc.getMessage(), val);
+      J2Vhdl_GenExpr.vhdlError("XException: " + exc.getMessage(), val);
       return false;
     }
     return bOk;
@@ -591,7 +591,7 @@ public final class VhdlExprTerm extends SrcInfo {
         boolean bRefNextUsed = false;
         
         if(var ==null && !bIsThis) { 
-          GenStmntExpr.vhdlError("only a reference with variable is supported", ref);
+          J2Vhdl_GenExpr.vhdlError("only a reference with variable is supported", ref);
           throw new IllegalArgumentException("genExpression");
         }
         //
@@ -621,7 +621,7 @@ public final class VhdlExprTerm extends SrcInfo {
         } else if(this.sRef.equals("ref")) {                      // get the referenced module, and maybe an inner sAccess
           J2Vhdl_ModuleInstance.InnerAccess mdlRef2 = this.mdlRef.idxAggregatedModules.get(sRefNext);
           if(mdlRef2 == null) {
-            GenStmntExpr.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + this.mdlRef.nameInstance , ref);
+            J2Vhdl_GenExpr.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + this.mdlRef.nameInstance , ref);
           } else {
             this.bVarUsedForReference = bMaybeVarUsedForReference;
             this.mdlRef = mdlRef2.mdl;
@@ -638,7 +638,7 @@ public final class VhdlExprTerm extends SrcInfo {
   //        mdlRef = VhdlConv.d.fdata.idxModules.get(sRefUse);
           this.mdlRef = this.mdlRef.idxSubModules.get(sRefNext);
           if(this.mdlRef == null) {
-            GenStmntExpr.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + this.mdlRef.nameInstance , ref);
+            J2Vhdl_GenExpr.vhdlError("In VhdlExpTerm.genSimpleValue - Reference not found: " + sRefNext + " searched in: " + this.mdlRef.nameInstance , ref);
           } else {
             this.bVarUsedForReference = bMaybeVarUsedForReference;
             this.sNameRefIfcAccess = null;                        // set if a interface agent is used to access, 
@@ -722,7 +722,7 @@ public final class VhdlExprTerm extends SrcInfo {
     if(val.get_parenthesisExpression()!=null) {
       this.b.append(" ( ");
       JavaSrc.Expression expr1 = val.get_Expression();
-      VhdlExprTerm termSimpleValue = GenStmntExpr.d.genExpression(this.b, expr1, genBool, false, mdlRef, sNameIclass, indent, null, null);
+      VhdlExprTerm termSimpleValue = J2Vhdl_GenExpr.d.genExpression(this.b, expr1, genBool, false, mdlRef, sNameIclass, indent, null, null);
       this.b.append(" ) ");
       this.exprType_.set(termSimpleValue.exprType_);
     }
@@ -739,7 +739,7 @@ public final class VhdlExprTerm extends SrcInfo {
           String mdlType = mdlRef.type.nameType;         // The own type
           sNameBit = mdlType + "_" + sNameIclass + "_" + varName;
         }
-        String snrBit = GenStmntExpr.d.fdata.idxEnumBitDef.get(sNameBit);
+        String snrBit = J2Vhdl_GenExpr.d.fdata.idxEnumBitDef.get(sNameBit);
         if(snrBit !=null) {
           Debugutil.stop();
           this.b.append(snrBit);
@@ -757,7 +757,7 @@ public final class VhdlExprTerm extends SrcInfo {
 //            }
         } else {
           if(mdlRefInfo !=null && mdlRefInfo.sRef !=null && mdlRefInfo.sRef.equals("Fpga")) {
-            varDescr = GenStmntExpr.d.fdata.varClk;
+            varDescr = J2Vhdl_GenExpr.d.fdata.varClk;
           } else {
             varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
           }
@@ -848,7 +848,7 @@ public final class VhdlExprTerm extends SrcInfo {
         if(name.equals("clk"))
           Debugutil.stop();
         try {                                              //Fpga.getBit(...) etc.
-          GenStmntExpr.GenOperation genOperation = GenStmntExpr.d.idxFpgaOperations.get(name);
+          J2Vhdl_GenExpr.GenOperation genOperation = J2Vhdl_GenExpr.d.idxFpgaOperations.get(name);
           if(genOperation ==null) {
             Debugutil.stop();
             this.b.append("??").append(name).append("??");
@@ -871,7 +871,7 @@ public final class VhdlExprTerm extends SrcInfo {
         }
         J2Vhdl_ModuleType.IfcConstExpr ifcDef = mdlRef ==null ? null : mdlRef.type.idxIfcExpr.get(sIfcName);
         if(ifcDef == null) {
-          GenStmntExpr.vhdlError("VhdlExprTerm.genSimpleValue() - Interface operation not found: " + sIfcName + " in module: " + (mdlRef == null ? "??unknown" : mdlRef.nameInstance), val);
+          J2Vhdl_GenExpr.vhdlError("VhdlExprTerm.genSimpleValue() - Interface operation not found: " + sIfcName + " in module: " + (mdlRef == null ? "??unknown" : mdlRef.nameInstance), val);
         } else if(ifcDef.constVal !=null) {
           J2Vhdl_Variable cvar = ifcDef.constVal.var;
           this.exprType_.etype = cvar.type.etype;
@@ -880,7 +880,7 @@ public final class VhdlExprTerm extends SrcInfo {
         } else if(ifcDef.expr !=null){
           boolean bInsideProcess = true;
           //String sNameIclassOp = nameIclassArg;                   // because inside the operation the outside reference to the call is not relevant. 
-          VhdlExprTerm ifcTerm = GenStmntExpr.d.genExpression(null, ifcDef.expr, genBool, bInsideProcess, mdlRef, sNameIclass, indent, null, null);
+          VhdlExprTerm ifcTerm = J2Vhdl_GenExpr.d.genExpression(null, ifcDef.expr, genBool, bInsideProcess, mdlRef, sNameIclass, indent, null, null);
           this.exprType_.etype = ifcTerm.exprType_.etype;
           this.exprType_.nrofElements = ifcTerm.exprType_.nrofElements;
           this.nrOperands += ifcTerm.nrOperands;
@@ -952,7 +952,7 @@ public final class VhdlExprTerm extends SrcInfo {
     if(mdl.type instanceof J2Vhdl_ModuleVhdlType) {        // == called VHDL module
       J2Vhdl_ModuleVhdlType mdlt = (J2Vhdl_ModuleVhdlType) mdl.type;
       if(!nameInnerClassVariable.equals("input") && !nameInnerClassVariable.equals("output")) {
-        GenStmntExpr.vhdlError("called VHDL module, variables should be input.name or output.name", var);
+        J2Vhdl_GenExpr.vhdlError("called VHDL module, variables should be input.name or output.name", var);
       }
       J2Vhdl_Variable varDescr = mdlt.idxIOVars.get(sElemJava);
       return varDescr;
@@ -962,25 +962,25 @@ public final class VhdlExprTerm extends SrcInfo {
       final String sMdlIdent = mdl.nameInstance.equals("ioPins") ? mdl.type.nameType 
           : mdl.nameInstance;                                // else: The name of the variable is built with the instance name.
       sRef = sMdlIdent + "." + ( nameInnerClassVariable == null || nameInnerClassVariable.length()==0 ? "" : nameInnerClassVariable + '.');          
-      J2Vhdl_Variable varDescr = GenStmntExpr.d.fdata.idxProcessVars.get(sElemJava);
+      J2Vhdl_Variable varDescr = J2Vhdl_GenExpr.d.fdata.idxProcessVars.get(sElemJava);
       final String sElemJava2 = sRef + sElemJava;
       if(varDescr == null) {
-        varDescr = GenStmntExpr.d.fdata.idxVars.get(sElemJava2);
+        varDescr = J2Vhdl_GenExpr.d.fdata.idxVars.get(sElemJava2);
       } else {
         Debugutil.stop();                  // a local PROCESS variable
       }
       if(varDescr == null && sElemJava2.endsWith("._val_")) {// Pattern for a state value
         final String sElemJava3 = sElemJava2.substring(0, sElemJava2.length()-6);
-        varDescr = GenStmntExpr.d.fdata.idxVars.get(sElemJava3);
+        varDescr = J2Vhdl_GenExpr.d.fdata.idxVars.get(sElemJava3);
       }
       if(varDescr == null) {
-        J2Vhdl_ConstDef cvar = GenStmntExpr.d.fdata.idxConstDef.get(sElemJava2);
+        J2Vhdl_ConstDef cvar = J2Vhdl_GenExpr.d.fdata.idxConstDef.get(sElemJava2);
         if(cvar !=null) {
           varDescr = cvar.var;
         }
       }
       if(varDescr == null) {
-        GenStmntExpr.vhdlError("VhdlExprTerm.getVariableAccess() - unknown variable >>" + sElemJava2 + "<< :" + dbg, var);
+        J2Vhdl_GenExpr.vhdlError("VhdlExprTerm.getVariableAccess() - unknown variable >>" + sElemJava2 + "<< :" + dbg, var);
         return null;
       } else {
         return varDescr;
