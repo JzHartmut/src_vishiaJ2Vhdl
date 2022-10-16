@@ -79,7 +79,15 @@ public class Java2Vhdl {
   
   
   
+  /**If not null, then checks whether the line(s) in this file are translated by an expression. 
+   * See search-hit ::: dbgStop ::: to set a breakpoint for specific positions of translation code.
+   * 
+   */
+  public String dbgStopFile = "SpiData.java";
   
+  public int dbgStopLine1 = 506, dbgStopLine2 = 512;
+  
+
   
   
   
@@ -964,12 +972,14 @@ public class Java2Vhdl {
    */
   private void associateActualWithTypeArgumentRefs ( J2Vhdl_ModuleInstance module, JavaSrc.ActualArguments actArgs, Iterator<JavaSrc.Argument> formalArgs ) {
     for(JavaSrc.Expression aggrArgExpr: actArgs.get_Expression() ) {  //the expression for the new Module(value, ...
-      if(J2Vhdl_GenExpr.d.dbgStopEnable) {
-        int[] linecol = new int[2];
-        String src = aggrArgExpr.getSrcInfo(linecol);
-        if(linecol[0] >= 35 && linecol[0] <= 35 && src.contains("BlinkingLed_Fpga.java"))
+      boolean dbgStop = false;
+      if(this.dbgStopFile !=null) { 
+        int[] lineColumn = new int[2];
+        String file = aggrArgExpr.getSrcInfo(lineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
+        if(file.contains(this.dbgStopFile) && lineColumn[0] >= this.dbgStopLine1 && lineColumn[0] <= this.dbgStopLine2) {
           Debugutil.stop();
-      }
+          dbgStop = true;
+      } }
 //      if(module.nameInstance.equals("ct_ct_clkDiv")) //"txSpe_crcGen"))
 //        Debugutil.stop();
       JavaSrc.ExprPart aggrArgExpr1 = aggrArgExpr.get_ExprPart().iterator().next();  //The only one part of the expression
@@ -1616,8 +1626,14 @@ public class Java2Vhdl {
         if(nameOper.equals("prepare") || nameOper.equals("output")) {            // it is an inner class for a VHDL RECORD and PROCESS
           Iterable<JavaSrc.Statement> istmnt = oper.get_methodbody().get_statement();
           if(istmnt !=null) for(JavaSrc.Statement stmnt : istmnt) {
-            if(J2Vhdl_GenExpr.d.dbgStopEnable && stmnt.getFilePath().contains("BlinkingLed_Fpga") && stmnt.getLine() >= 77 && stmnt.getLine() <= 77)
-              Debugutil.stop();
+            boolean dbgStop = false;
+            if(this.dbgStopFile !=null) { 
+              int[] lineColumn = new int[2];
+              String file = stmnt.getSrcInfo(lineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
+              if(file.contains(this.dbgStopFile) && lineColumn[0] >= this.dbgStopLine1 && lineColumn[0] <= this.dbgStopLine2) {
+                Debugutil.stop();
+                dbgStop = true;
+            } }
             if(stmnt.isAssignExpr()) {                     // especially not step() and update(), or test operations. 
               //next line is faulty if a Process is created on top level, test with null is proper.
               //commented: this.vhdlConv.genStmnt(wOut, stmnt, mdl, mdlt.nameType, 0, false);

@@ -330,19 +330,13 @@ public final class VhdlExprTerm extends SrcInfo {
    * @throws Exception
    */
   public boolean addOperand ( VhdlExprTerm exprRightArg, J2Vhdl_Operator opPreced, JavaSrc.ExprPart part
-      , boolean genBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
+      , boolean genBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, boolean dbgStop) throws Exception {
     //
     if( ! super.containsInfo()) { 
       super.setSrcInfo(part);                              // store the source info from the first part
     }
-    boolean dbgStop = false;
-    if(J2Vhdl_GenExpr.d.dbgStopEnable) {
-      int[] linecolmn = new int[2];
-      String sFile = part.getSrcInfo(linecolmn);
-      dbgStop = sFile.contains("FpgaTop_SpeA.java") && linecolmn[0] >= 229 && linecolmn[0] <= 229;
-      if(dbgStop)
-        Debugutil.stop();
-    }
+    if(dbgStop)
+      Debugutil.stop();
     int posEnd = this.b.length();
     final VhdlExprTerm exprRight;
     //

@@ -17,6 +17,8 @@ import org.vishia.util.StringFunctions;
  * This class is instantiated only one time.
  * Note: {@link VhdlExprTerm} generates parts of an expression, called here, 
  * with more as one instance proper for left part, right part. 
+ * <br>
+ * Search for ::: dbgStop ::: for debug stop on specific lines in java source file.
  * @author hartmut Schorrig
  *
  */
@@ -75,7 +77,15 @@ public class J2Vhdl_GenExpr {
   
   static public final J2Vhdl_GenExpr d = new J2Vhdl_GenExpr(null, new J2Vhdl_FpgaData());
   
-  public boolean dbgStopEnable = true;
+  public boolean XXXdbgStopEnable = true;
+  
+  /**If not null, then checks whether the line(s) in this file are translated by an expression. 
+   * See search-hit ::: dbgStop ::: to set a breakpoint for specific positions of translation code.
+   * 
+   */
+  public String dbgStopExprFile = "SpiData.java";
+  
+  public int dbgStopLine1 = 506, dbgStopLine2 = 512;
   
   public boolean bAppendLineColumn = false;
 
@@ -235,13 +245,13 @@ public class J2Vhdl_GenExpr {
     //
     VhdlExprTerm exprLeft = null;                          // left side expression segment from stack popped.
     try {
-      boolean bStopExprPart = false;
-      if(this.dbgStopEnable) { 
+      boolean dbgStop = false;
+      if(this.dbgStopExprFile !=null) { 
         int[] lineColumn = new int[2];
         String file = exprRpn.getSrcInfo(lineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
-        if(file.contains("SpiMaster.java") && lineColumn[0] >= 326 && lineColumn[0] <= 328) {
+        if(file.contains(this.dbgStopExprFile) && lineColumn[0] >= this.dbgStopLine1 && lineColumn[0] <= this.dbgStopLine2) {
           Debugutil.stop();
-          bStopExprPart = true;
+          dbgStop = true;
       } }
       if( ! exprRpn.isPrepared()) { exprRpn.prep(null); }
       Deque<VhdlExprTerm> uStack = new ArrayDeque<VhdlExprTerm>(); 
@@ -302,10 +312,10 @@ public class J2Vhdl_GenExpr {
           bLastWasAssignment = true;
           //
           //======>>>>>>>
-          if(bStopExprPart)
+          if(dbgStop)
             Debugutil.stop();
           if(exprLeft.variable() !=null) {                 // elsewhere it is a time variable assignment
-            genAssignInExpression(out, exprLeft, opPreced, exprRight, part, partTrueFalse, mdl, nameInnerClassVariable, indent, bInsideProcess);
+            genAssignInExpression(out, exprLeft, opPreced, exprRight, part, partTrueFalse, mdl, nameInnerClassVariable, indent, bInsideProcess, dbgStop);
           }
           partTrueFalse = null;
           bUseTrueFalse = false;
@@ -317,9 +327,9 @@ public class J2Vhdl_GenExpr {
           bLastWasAssignment = false;                      // add operator operand
           //
           //======>>>>>>>
-          if(bStopExprPart)
+          if(dbgStop)
             Debugutil.stop();
-          boolean bOk = exprLeft.addOperand(exprRight, opPreced, part, genBool, mdl, nameInnerClassVariable); 
+          boolean bOk = exprLeft.addOperand(exprRight, opPreced, part, genBool, mdl, nameInnerClassVariable, dbgStop); 
           if(!bOk) {                                       // addOperand makes also some type adaption.
             if(nrAllOperands == 0) {break; }               // first variable unknown, not necessary statement (time assignment etc.).
           }
@@ -345,7 +355,7 @@ public class J2Vhdl_GenExpr {
           String cond = exprLeft.b.toString();             // The exprLeft contains till now the condition term. 
           exprLeft.b.setLength(0);                         // clear exprLeft, use as destination
           VhdlExprTerm.ExprType assignType1 = assignType !=null ? assignType : exprLeft.exprType_;
-          genTrueFalse(exprLeft.b, assignType1, cond, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm, bStopExprPart);
+          genTrueFalse(exprLeft.b, assignType1, cond, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm, dbgStop);
           exprLeft.exprType_.set(assignType1);             // The expression represents the trueFalseValue, with this type.   
           if(out !=null) { out.append(indent).append(exprLeft.b); }
         }
@@ -435,15 +445,11 @@ public class J2Vhdl_GenExpr {
     , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
     , CharSequence indent
     , boolean bInsideProcess
+    , boolean dbgStopArg
     ) throws Exception {
-    boolean dbgStop = false;
+    boolean dbgStop = dbgStopArg;
     VhdlExprTerm exprRight;
     if(StringFunctions.startsWith(exprLeft.b, "ringMstLo_Pin")) { dbgStop = true; }
-    if(this.dbgStopEnable) { 
-      int[] lineColumn = new int[2];
-      String file = part.getSrcInfo(lineColumn);
-      dbgStop |= file.contains("SpiMaster") && lineColumn[0] >= 319 && lineColumn[0] <= 320;
-    }
     if(dbgStop) {
       Debugutil.stop();
     }
