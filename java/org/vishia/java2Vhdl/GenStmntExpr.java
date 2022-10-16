@@ -17,7 +17,7 @@ import org.vishia.util.StringFunctions;
  * @author hartmut Schorrig
  *
  */
-public class VhdlConv {
+public class GenStmntExpr {
   
   /**Version, history and license.
    * <ul>
@@ -70,7 +70,7 @@ public class VhdlConv {
 
   public final J2Vhdl_FpgaData fdata;
   
-  static public final VhdlConv d = new VhdlConv(null, new J2Vhdl_FpgaData());
+  static public final GenStmntExpr d = new GenStmntExpr(null, new J2Vhdl_FpgaData());
   
   public boolean dbgStopEnable = true;
   
@@ -150,7 +150,7 @@ public class VhdlConv {
   /**The instance is created only one time for all sources and PROCESSes
    * @param classMdl
    */
-  private VhdlConv(Class<?> classMdl, J2Vhdl_FpgaData fdata) {
+  private GenStmntExpr(Class<?> classMdl, J2Vhdl_FpgaData fdata) {
     this.fdata = fdata;
     this.classMdl = classMdl;
     if(classMdl !=null) {
@@ -498,10 +498,10 @@ public class VhdlConv {
     VhdlExprTerm exprTrue = genExpression(null, partTrueFalse.get_trueExpr(), false, bInsideProcess, mdl, nameInnerClassVariable, null, null, typeLeft);
     VhdlExprTerm exprFalse = genExpression(null, partTrueFalse.get_falseExpr(), false, bInsideProcess, mdl, nameInnerClassVariable, null, null, typeLeft);
     if(!VhdlExprTerm.adjustType(sExprTrue, exprTrue.b, typeLeft, exprTrue.exprType_)) {
-      VhdlConv.vhdlError("non proper types in expression, ", partTrueFalse);
+      GenStmntExpr.vhdlError("non proper types in expression, ", partTrueFalse);
     }
     if(!VhdlExprTerm.adjustType(sExprFalse, exprFalse.b, typeLeft, exprFalse.exprType_)) {
-      VhdlConv.vhdlError("non proper types in expression, ", partTrueFalse);
+      GenStmntExpr.vhdlError("non proper types in expression, ", partTrueFalse);
     }
     //
     if(bInsideProcess) {                                   // inside of a process:
@@ -1004,7 +1004,7 @@ public class VhdlConv {
             bTypeAnnot = true;
           }
           else {
-            VhdlConv.vhdlError("faulty annotation: " + annot, varzp);
+            GenStmntExpr.vhdlError("faulty annotation: " + annot, varzp);
             eType.etype = VhdlExprTerm.ExprTypeEnum.bitVtype;
             sNrBits = "32";
             eType.nrofElements = 32;

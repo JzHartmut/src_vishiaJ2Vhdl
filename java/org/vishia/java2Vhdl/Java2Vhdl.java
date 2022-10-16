@@ -158,7 +158,7 @@ public class Java2Vhdl {
     
     
     Arguments.SetArgument setSrcComment = new Arguments.SetArgument(){ @Override public boolean setArgument(String val){ 
-      VhdlConv.d.bAppendLineColumn = true;
+      GenStmntExpr.d.bAppendLineColumn = true;
       return true;
     }};
     
@@ -271,9 +271,9 @@ public class Java2Vhdl {
 
   
   /**Aggregation to VhdlConv, it contains some more data. */
-  final VhdlConv vhdlConv = VhdlConv.d;
+  final GenStmntExpr vhdlConv = GenStmntExpr.d;
   
-  final J2Vhdl_FpgaData fdata = VhdlConv.d.fdata; //new J2Vhdl_FpgaData(); 
+  final J2Vhdl_FpgaData fdata = GenStmntExpr.d.fdata; //new J2Vhdl_FpgaData(); 
   
   
   OutTextPreparer vhdlHead, vhdlAfterPort, vhdlConst;
@@ -603,7 +603,7 @@ public class Java2Vhdl {
                 mdlt.idxSubModulesVar.put(nameSubModule, mVar);  // register the module instance in the type as used composite sub module
                 
               } else {
-                VhdlConv.vhdlError("evaluteModules() - J2Vhdl_ModuleType not found :" + sType + " in " + iClassName, mVar);
+                GenStmntExpr.vhdlError("evaluteModules() - J2Vhdl_ModuleType not found :" + sType + " in " + iClassName, mVar);
               }
               
             }
@@ -658,7 +658,7 @@ public class Java2Vhdl {
               if(nameOper.equals("init") || nameOper.startsWith("init_")) {     // the init(ref,...) call in the ctor of Modules
                 JavaSrc.Reference refSubModule = operVal.get_reference();
                 String nameSubmodule = refSubModule.getSimpleRefVariable();
-                if(nameSubmodule == null) { VhdlConv.vhdlError("style guide init", oper); }
+                if(nameSubmodule == null) { GenStmntExpr.vhdlError("style guide init", oper); }
                 else {
                   if(mdlt.idxSubModulesInit == null) { 
                     mdlt.idxSubModulesInit = new TreeMap<String, JavaSrc.SimpleMethodCall>();
@@ -689,7 +689,7 @@ public class Java2Vhdl {
   private void createModuleInstancesRecursively ( J2Vhdl_ModuleInstance mdlParent, String nameMdl0, int recursion ) {
     J2Vhdl_ModuleType mdlt0 = mdlParent.type;
     if(recursion >3) {
-      VhdlConv.vhdlError("too many sub modules nested", mdlt0.moduleClass);
+      GenStmntExpr.vhdlError("too many sub modules nested", mdlt0.moduleClass);
     }
     else if(mdlt0.idxSubModulesVar !=null ){
       for(Map.Entry<String, JavaSrc.VariableInstance> e : mdlt0.idxSubModulesVar.entrySet()) {
@@ -754,7 +754,7 @@ public class Java2Vhdl {
           if(var !=null ) { //always existing, then it is IO
             var.location = J2Vhdl_Variable.Location.inout;
           } else {
-            var = VhdlConv.createVariable(mVar, location, null, "", null, mdlt.idxIOVars, null);
+            var = GenStmntExpr.createVariable(mVar, location, null, "", null, mdlt.idxIOVars, null);
             mdlt.io.add(var);
           }
           vars.add(var);     //put in the adequate list
@@ -825,7 +825,7 @@ public class Java2Vhdl {
                 int zArgs = actArgs.getSize_Expression();
                 JavaSrc.Reference refSubModule = operVal.get_reference();
                 String nameSubmodule = refSubModule.getSimpleRefVariable();
-                if(nameSubmodule == null) { VhdlConv.vhdlError("style guide init", oper); }
+                if(nameSubmodule == null) { GenStmntExpr.vhdlError("style guide init", oper); }
                 else {
                   J2Vhdl_ModuleInstance subModule = mdl.idxSubModules.get(nameSubmodule);
                   JavaSrc.ClassDefinition subModuleClass = subModule.type.moduleClass;
@@ -895,7 +895,7 @@ public class Java2Vhdl {
         }
       }
       if(formalArgs == null) { 
-        VhdlConv.vhdlError("constructor in submodule not found", newObj); 
+        GenStmntExpr.vhdlError("constructor in submodule not found", newObj); 
       }
       else {
         if(module.nameInstance.equals("data"))
@@ -961,7 +961,7 @@ public class Java2Vhdl {
    */
   private void associateActualWithTypeArgumentRefs ( J2Vhdl_ModuleInstance module, JavaSrc.ActualArguments actArgs, Iterator<JavaSrc.Argument> formalArgs ) {
     for(JavaSrc.Expression aggrArgExpr: actArgs.get_Expression() ) {  //the expression for the new Module(value, ...
-      if(VhdlConv.d.dbgStopEnable) {
+      if(GenStmntExpr.d.dbgStopEnable) {
         int[] linecol = new int[2];
         String src = aggrArgExpr.getSrcInfo(linecol);
         if(linecol[0] >= 35 && linecol[0] <= 35 && src.contains("BlinkingLed_Fpga.java"))
@@ -1037,7 +1037,7 @@ public class Java2Vhdl {
       //VhdlConv.AggregatedModule aggrModule = new VhdlConv.AggregatedModule();
       //aggrModule.name = sAggrRecordInstance;
       if(aggrModule == null) {
-        VhdlConv.vhdlError("Error Aggregation module not found: " + module.nameInstance + "." + sNameFormalArg + "<-- " + sAggrName + ": ???moduleNotFound", actArgs);
+        GenStmntExpr.vhdlError("Error Aggregation module not found: " + module.nameInstance + "." + sNameFormalArg + "<-- " + sAggrName + ": ???moduleNotFound", actArgs);
       } else {
         System.out.println("    Aggregation: " + module.nameInstance + "." + sNameFormalArg + "<--" + aggrModule.nameInstance);
       }
@@ -1110,9 +1110,9 @@ public class Java2Vhdl {
   
   
   /**This operation looks for all variable in all inner VHDL Process classes
-   * and calls {@link VhdlConv#mapVariables(String, String, org.vishia.parseJava.JavaSrc.ClassDefinition)} 
+   * and calls {@link GenStmntExpr#mapVariables(String, String, org.vishia.parseJava.JavaSrc.ClassDefinition)} 
    * for each module which fills the global visible 
-   * {@link VhdlConv#idxVars} with all variables from all PROCESS classes
+   * {@link GenStmntExpr#idxVars} with all variables from all PROCESS classes
    * also for cross accesses. <br>
    * As result the name for VHDL and the search name for Java, and the type is stored.
    * @throws Exception 
@@ -1216,7 +1216,7 @@ public class Java2Vhdl {
   
   
   
-  /**Creates a {@link J2Vhdl_ConstDef} and stores in {@link VhdlConv#idxConstDef} from a given expression
+  /**Creates a {@link J2Vhdl_ConstDef} and stores in {@link GenStmntExpr#idxConstDef} from a given expression
    * @param javaPath
    * @param nameVhdl
    * @param valueterm expression contains only the const value, no more.
@@ -1502,7 +1502,7 @@ public class Java2Vhdl {
                 }
               }
               if(vhdlMdlType == null) {
-                VhdlConv.vhdlError("LINK_VHDL_MODULE ctor must have an argument 'vhdlMdl'", ctor);
+                GenStmntExpr.vhdlError("LINK_VHDL_MODULE ctor must have an argument 'vhdlMdl'", ctor);
               }
               else {
                 String ctorName = ctor.get_constructor();
@@ -1519,7 +1519,7 @@ public class Java2Vhdl {
                       vhdlMdlType = argType.get_name();
                       JavaSrc.Expression initialValue = varDef.get_Expression();
                       if(initialValue == null) {
-                        VhdlConv.vhdlError("internal reference should be initializes", stmnt);
+                        GenStmntExpr.vhdlError("internal reference should be initializes", stmnt);
                       } else {
                         JavaSrc.ExprPart exprPart = initialValue.get_ExprPart().iterator().next();
                         JavaSrc.SimpleValue refValue = exprPart.get_value();
@@ -1613,7 +1613,7 @@ public class Java2Vhdl {
         if(nameOper.equals("prepare") || nameOper.equals("output")) {            // it is an inner class for a VHDL RECORD and PROCESS
           Iterable<JavaSrc.Statement> istmnt = oper.get_methodbody().get_statement();
           if(istmnt !=null) for(JavaSrc.Statement stmnt : istmnt) {
-            if(VhdlConv.d.dbgStopEnable && stmnt.getFilePath().contains("BlinkingLed_Fpga") && stmnt.getLine() >= 77 && stmnt.getLine() <= 77)
+            if(GenStmntExpr.d.dbgStopEnable && stmnt.getFilePath().contains("BlinkingLed_Fpga") && stmnt.getLine() >= 77 && stmnt.getLine() <= 77)
               Debugutil.stop();
             if(stmnt.isAssignExpr()) {                     // especially not step() and update(), or test operations. 
               //next line is faulty if a Process is created on top level, test with null is proper.
