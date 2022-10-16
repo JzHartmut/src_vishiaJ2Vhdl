@@ -542,14 +542,14 @@ public class J2Vhdl_GenExpr {
         Debugutil.stop();
       J2Vhdl_Variable varAssign = exprLeft.variable();
       if(varAssign ==null) {
-        return null;                                   // varTypeCurr is null on time variables (not known)
+        return null;                                       // varTypeCurr is null on time variables (not known)
       }
-      VhdlExprTerm.ExprType typeVar = exprLeft.exprType_; // varAssign.type;
+      VhdlExprTerm.ExprType typeVar = exprLeft.exprType_;  // varAssign.type;
       //note: following assertion is false on setBit..(...)
       //assert(exprLeft.exprType_.etype == typeVar.etype && exprLeft.exprType_.nrofElements == typeVar.nrofElements);
       //if(part instanceof JavaSrc.ExprPartTrueFalse) {
       if(partTrueFalse !=null) {
-        exprRight.convertToBool();                         // need bool in IF() or WHEN()
+        exprRight.fulfillNeedBool(true);                   // need bool in IF() or WHEN()
         StringBuilder assignTerm = new StringBuilder(exprLeft.b);
         assignTerm.append(" ").append(sOpVhdl);
         genTrueFalse(out, typeVar, exprRight.b, partTrueFalse, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm, dbgStop);
