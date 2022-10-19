@@ -31,6 +31,7 @@ public class JavaSrc extends JavaSrc_Base {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-10-19 Expression.toString(...) changed back to version ~2022-03 because test of RPN , without source information
    * <li>2022-03-29 new {@link Statement#isAssignExpr()}
    * <li>2022-03-29 Hartmut chg: {@link Expression#prep(Appendable)}: It must not return a new Expression, 
    *   instead replace the existing {@link JavaSrc_Base.Expression_Base#exprPart} list with a new list.
@@ -174,12 +175,25 @@ public class JavaSrc extends JavaSrc_Base {
       else return super.value.toString();
     }
   
+    
+    public void toString(StringBuilder sb) {
+      if(super.operator !=null) { sb.append(super.operator). append(' '); }
+      else sb.append("@ ");
+      if(this.sUnaryOp !=null) { sb.append(this.sUnaryOp); }
+      if(super.value!=null){ sb.append(super.value.toString()); }
+      else sb.append("@");
+    }
+    
+    
     @Override public String toString ( ) { 
-      return (this.sUnaryOp !=null? " " + this.sUnaryOp : "")
-      + (super.value==null ? "@" : super.value.toString())
-      + " "    
-      + (super.operator!=null ? super.operator : "@")
-      ; //"TODO toString";
+      StringBuilder sb = new StringBuilder();
+      toString(sb);
+      return sb.toString();
+//      return (this.sUnaryOp !=null? " " + this.sUnaryOp : "")
+//      + (super.value==null ? "@" : super.value.toString())
+//      + " "    
+//      + (super.operator!=null ? super.operator : "@")
+//      ; //"TODO toString";
     }
   
   }
@@ -263,6 +277,15 @@ public class JavaSrc extends JavaSrc_Base {
   /**Class for Writing the Component Expression.*/
   public static class Expression extends JavaSrc_Base.Expression_Base {
   
+    
+    public static String dbgStopExprFile = "SpiMaster.java";
+    
+    public static int dbgStopLine1 = 738, dbgStopLine2 = 738;
+    
+    /**It is important to see which line/column was hit on {@link #dbgStopLine1} ..2 range */
+    static int[] dbgRdLineColumn = new int[2];
+
+    
     private boolean isPrepared;
     
     public Expression() {
@@ -403,6 +426,13 @@ public class JavaSrc extends JavaSrc_Base {
      */
     public void prep(Appendable log) throws IOException {
       if(this.isPrepared) { return; }
+      boolean dbgStop = false;
+      if(Expression.dbgStopExprFile !=null) { 
+        String file = this.getSrcInfo(Expression.dbgRdLineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
+        if(file.contains(Expression.dbgStopExprFile) && Expression.dbgRdLineColumn[0] >= Expression.dbgStopLine1 && Expression.dbgRdLineColumn[0] <= Expression.dbgStopLine2) {
+          Debugutil.stop();
+          dbgStop = true;
+      } }
       if(this.getSize_ExprPart()<=1) //return this;          //nothing to prepare, only one element. 
         Debugutil.stop();
       //JavaSrc.Expression dstExpr = new JavaSrc.Expression(this); 
@@ -490,8 +520,10 @@ public class JavaSrc extends JavaSrc_Base {
           if(log!=null) log.append("\n inner Expr) ");
           for(int ix=0; ix <= ixStackOp; ++ix) { if(log!=null) log.append(stackOp[ix].toString()).append(":"); }
           Expression innerExpr = part.value.expression;  
+          String sUnary = part.value.unaryOperator;
           part.value = null;                   //dstExprexpression value is already evaluated and stored in dstExpr.exprPart
           innerExpr.prep(partsNew, log);
+          Debugutil.stop();
         }
         if(part.value != null) {                 // it is null on a nested expression before which is not an assignment
           if(precedNext > preced) {               //==== higher precedence: Save only the operator in stack
@@ -564,13 +596,13 @@ public class JavaSrc extends JavaSrc_Base {
     }
     
     @Override public String toString() {
-      return showInfo() + showSrcInfo();
+      return showInfo(); // + showSrcInfo();
     }
     
     public String showInfo ( ) {
       StringBuilder b = new StringBuilder(200);
       for(ExprPart part: super.exprPart) {
-        b.append(part.toString()).append("; ");
+        part.toString(b); b.append("; ");
       }
       return b.toString();
     }
@@ -886,10 +918,8 @@ public class JavaSrc extends JavaSrc_Base {
   public static class ConstNumber extends JavaSrc_Base.ConstNumber_Base implements SetSrcInfo_ifc {
   
   
-    String sNumber;
-  
     @Override  public void setSrcInfo ( String src) {
-      this.sNumber = src;
+      super.sNumber = src;
     }
   
     public String get_sNumber ( ) {return this.sNumber; }
@@ -904,7 +934,7 @@ public class JavaSrc extends JavaSrc_Base {
       else if(sNumber !=null ) {
         return sNumber;
       }
-      else return "TODO toString";
+      else return super.sNumber;
     }
 
   }
@@ -1472,7 +1502,7 @@ public class JavaSrc extends JavaSrc_Base {
       else {
         b.append("TODO SimpleValue.toString()");
       }
-      b.append(showSrcInfo());
+      //b.append(showSrcInfo());
       return b.toString();
     }
   

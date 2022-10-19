@@ -811,7 +811,7 @@ public final class VhdlExprTerm extends SrcInfo {
           this.b.append(" ??boolExpr:").append(sBool);
         }
       }
-      else if(constNr.get_intNumber() !=0) {
+      else if(constNr.get_intNumber() !=0 || constNr.get_sNumber().equals("0")) {
         this.b.append(Integer.toString(val.get_intNumber()));
         if(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { 
           this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.numConst;
@@ -862,6 +862,9 @@ public final class VhdlExprTerm extends SrcInfo {
           sNameIclass = null;                            // it was used to build the sIfcName, not part of the variable access.
         } else {
           sIfcName = mdlRefInfo.sNameRefIfcAccess + "." + name;
+        }
+        if(dbgStop) {
+          Debugutil.stop();
         }
         J2Vhdl_ModuleType.IfcConstExpr ifcDef = mdlRef ==null ? null : mdlRef.type.idxIfcExpr.get(sIfcName);
         if(ifcDef == null) {

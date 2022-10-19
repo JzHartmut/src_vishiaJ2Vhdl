@@ -26,6 +26,9 @@ public class J2Vhdl_GenExpr {
   
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-19 improve debug possibilities: {@value #dbgStopExprFile} etc. 
+   * <li>2022-08-16 bugfix unnecessary "='1'" because convertToBool(...), correct using fulfillNeedBool(...)
+   * <li>2022-08-16 rename to J2Vhdl_GenExpr and copy some parts to J2Vhdl_GenStmnt from "VhdlConv". Better name, better sorted.
    * <li>2022-08-10 Now obsolete double operations getVariableAccess(...), genAggregation(...) and evalIfcOper(...) removed.
    *   This operations were replaced by some stuff in {@link VhdlExprTerm} and yet used only for getBitShL/R and setBit,
    *   with a twice effort of maintenance. Now replaced.  
@@ -77,18 +80,18 @@ public class J2Vhdl_GenExpr {
   
   static public final J2Vhdl_GenExpr d = new J2Vhdl_GenExpr(null, new J2Vhdl_FpgaData());
   
-  public boolean XXXdbgStopEnable = true;
-  
   /**If not null, then checks whether the line(s) in this file are translated by an expression. 
    * See search-hit ::: dbgStop ::: to set a breakpoint for specific positions of translation code.
    * 
    */
-  public String dbgStopExprFile = "SpiData.java";
+  public static String dbgStopExprFile = null; //"SpiMaster.java";
   
-  public int dbgStopLine1 = 506, dbgStopLine2 = 512;
+  public static int dbgStopLine1 = 738, dbgStopLine2 = 738;
+  
+  /**It is important to see which line/column was hit on {@link #dbgStopLine1} ..2 range */
+  int[] dbgRdLineColumn = new int[2];
   
   public boolean bAppendLineColumn = false;
-
 
 
 
@@ -243,18 +246,17 @@ public class J2Vhdl_GenExpr {
       , CharSequence indent, CharSequence assignTerm, VhdlExprTerm.ExprType assignType) 
       throws Exception {
     //
-    VhdlExprTerm exprLeft = null;                          // left side expression segment from stack popped.
+    VhdlExprTerm _exprLeft = null;                          // left side expression segment from stack popped.
     try {
       boolean dbgStop = false;
       if(this.dbgStopExprFile !=null) { 
-        int[] lineColumn = new int[2];
-        String file = exprRpn.getSrcInfo(lineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
-        if(file.contains(this.dbgStopExprFile) && lineColumn[0] >= this.dbgStopLine1 && lineColumn[0] <= this.dbgStopLine2) {
+        String file = exprRpn.getSrcInfo(this.dbgRdLineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
+        if(file.contains(this.dbgStopExprFile) && this.dbgRdLineColumn[0] >= this.dbgStopLine1 && this.dbgRdLineColumn[0] <= this.dbgStopLine2) {
           Debugutil.stop();
           dbgStop = true;
       } }
       if( ! exprRpn.isPrepared()) { exprRpn.prep(null); }
-      Deque<VhdlExprTerm> uStack = new ArrayDeque<VhdlExprTerm>(); 
+      Deque<VhdlExprTerm> _uStack = new ArrayDeque<VhdlExprTerm>(); 
       int nrAllOperands = 0;
       boolean bLastWasAssignment = false;
       JavaSrc.ExprPart lastPart = null;                      // the last part can contain a trueFalseExpression, check afterwards 
@@ -268,24 +270,24 @@ public class J2Vhdl_GenExpr {
         if(part instanceof JavaSrc.ExprPartTrueFalse) {
           partTrueFalse = (JavaSrc.ExprPartTrueFalse) part;  // store till assignment or end
         }
-        if(exprLeft !=null && StringFunctions.startsWith(exprLeft.b, "ringMstLo_Pin"))
+        if(_exprLeft !=null && StringFunctions.startsWith(_exprLeft.b, "ringMstLo_Pin"))
           Debugutil.stop();
-        J2Vhdl_Operator opPreced = getOperator(part, exprLeft, genBool);
+        J2Vhdl_Operator opPreced = getOperator(part, _exprLeft, genBool);
         //
         //pop
-        final VhdlExprTerm exprRight;                      // right side expression segment from left for operation in stack.
+        final VhdlExprTerm _exprRight;                      // right side expression segment from left for operation in stack.
         if(part.get_value() ==null) {                      // "@"  // use the accu as operand, pop leftExpr from stack:
-          exprRight = exprLeft;                            // then the current expression is the right part, sOperand
-          exprLeft = uStack.pop();                         // pop: continue with pushed expression as left part
+          _exprRight = _exprLeft;                            // then the current expression is the right part, sOperand
+          _exprLeft = _uStack.pop();                         // pop: continue with pushed expression as left part
           bUseTrueFalse = partTrueFalse !=null;            // after pop a last partTrueFalse should be evaluated
         } else { 
-          exprRight = null;                                // no pop, then exprRight is empty.
+          _exprRight = null;                                // no pop, then exprRight is empty.
           //push
           if(opPreced.sJava.equals("@")) {                 // start of a new expression segment. @a
-            if(exprLeft !=null) {
-              uStack.push(exprLeft);                       // push the current expression in stack, use later
+            if(_exprLeft !=null) {
+              _uStack.push(_exprLeft);                       // push the current expression in stack, use later
             }
-            exprLeft = new VhdlExprTerm(this);             // new empty exprLeft
+            _exprLeft = new VhdlExprTerm(this);             // new empty exprLeft
           }
         }
         // Write subordinate expression terms in parenthesis if they have a lower precedence
@@ -295,17 +297,17 @@ public class J2Vhdl_GenExpr {
         // (parenthesis surround AND terms though there are unnecessary in VHDL).
         // Example: b1 OR b2 AND b3 is clarified and correct in VHDL: Execute it in order, OR first, then AND.
         //          But the tools tests whether it is written (b1 OR b2) AND b3 because supposing of an writing error
-        if(exprRight !=null                                
-          && ( opPreced.precedVhdl > exprRight.precedSegm.precedVhdl   
-            || opPreced.precedVhdl == exprRight.precedSegm.precedVhdl && opPreced != exprRight.precedSegm //&& opPreced.bAnd
+        if(_exprRight !=null                                
+          && ( opPreced.precedVhdl > _exprRight.precedSegm.precedVhdl   
+            || opPreced.precedVhdl == _exprRight.precedSegm.precedVhdl && opPreced != _exprRight.precedSegm //&& opPreced.bAnd
           )  ) {                                            
-          exprRight.b.insert(0, " (").append(") ");        // This part in parenthesis 
+          _exprRight.b.insert(0, " (").append(") ");        // This part in parenthesis 
         }
-        if(exprLeft !=null && exprLeft.b.length() >0 
-          && ( opPreced.precedVhdl > exprLeft.precedSegm.precedVhdl
-            || opPreced.precedVhdl == exprLeft.precedSegm.precedVhdl && opPreced != exprLeft.precedSegm //&& opPreced.bAnd 
+        if(_exprLeft !=null && _exprLeft.b.length() >0 
+          && ( opPreced.precedVhdl > _exprLeft.precedSegm.precedVhdl
+            || opPreced.precedVhdl == _exprLeft.precedSegm.precedVhdl && opPreced != _exprLeft.precedSegm //&& opPreced.bAnd 
           )  ) { // if the precedence is greater or also equal
-          exprLeft.b.insert(0, " (").append(") ");         // then set both expressions in parenthesis to clarify lesser precedence
+          _exprLeft.b.insert(0, " (").append(") ");         // then set both expressions in parenthesis to clarify lesser precedence
         }
         //
         if(opPreced.opBool.bAssign) {                      // assignment
@@ -314,8 +316,9 @@ public class J2Vhdl_GenExpr {
           //======>>>>>>>
           if(dbgStop)
             Debugutil.stop();
-          if(exprLeft.variable() !=null) {                 // elsewhere it is a time variable assignment
-            genAssignInExpression(out, exprLeft, opPreced, exprRight, part, partTrueFalse, mdl, nameInnerClassVariable, indent, bInsideProcess, dbgStop);
+          if(_exprLeft.variable() !=null) {                 // elsewhere it is a time variable assignment
+            // _exprLeft is the variable to assign, part or exprRight the assigned value
+            genAssignInExpression(out, _exprLeft, opPreced, _exprRight, part, partTrueFalse, mdl, nameInnerClassVariable, indent, bInsideProcess, dbgStop);
           }
           partTrueFalse = null;
           bUseTrueFalse = false;
@@ -329,7 +332,7 @@ public class J2Vhdl_GenExpr {
           //======>>>>>>>
           if(dbgStop)
             Debugutil.stop();
-          boolean bOk = exprLeft.addOperand(exprRight, opPreced, part, genBool, mdl, nameInnerClassVariable, dbgStop); 
+          boolean bOk = _exprLeft.addOperand(_exprRight, opPreced, part, genBool, mdl, nameInnerClassVariable, dbgStop); 
           if(!bOk) {                                       // addOperand makes also some type adaption.
             if(nrAllOperands == 0) {break; }               // first variable unknown, not necessary statement (time assignment etc.).
           }
@@ -341,48 +344,49 @@ public class J2Vhdl_GenExpr {
       //
       if( ! bLastWasAssignment) {                            // on assign it is written already in the string builder.
         boolean bTrueFalse = lastPart instanceof JavaSrc.ExprPartTrueFalse;
-        exprLeft.fulfillNeedBool(bTrueFalse || genBool);
+        _exprLeft.fulfillNeedBool(bTrueFalse || genBool);
         //TODO necessary?
-        if( (genBool || bTrueFalse) && exprLeft.exprType_.etype != VhdlExprTerm.ExprTypeEnum.booltype) {
+        if( (genBool || bTrueFalse) && _exprLeft.exprType_.etype != VhdlExprTerm.ExprTypeEnum.booltype) {
           assert(false);
-          if(nrAllOperands >1) { exprLeft.b.insert(0, "(").append(")");}
-          exprLeft.b.append("='1'");                        // builds a boolean in VHDL
-          exprLeft.exprType_.etype = VhdlExprTerm.ExprTypeEnum.booltype;
-          exprLeft.exprType_.nrofElements = 1;
+          if(nrAllOperands >1) { _exprLeft.b.insert(0, "(").append(")");}
+          _exprLeft.b.append("='1'");                        // builds a boolean in VHDL
+          _exprLeft.exprType_.etype = VhdlExprTerm.ExprTypeEnum.booltype;
+          _exprLeft.exprType_.nrofElements = 1;
         }
         
         if(bTrueFalse) {
-          String cond = exprLeft.b.toString();             // The exprLeft contains till now the condition term. 
-          exprLeft.b.setLength(0);                         // clear exprLeft, use as destination
-          VhdlExprTerm.ExprType assignType1 = assignType !=null ? assignType : exprLeft.exprType_;
-          genTrueFalse(exprLeft.b, assignType1, cond, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm, dbgStop);
-          exprLeft.exprType_.set(assignType1);             // The expression represents the trueFalseValue, with this type.   
-          if(out !=null) { out.append(indent).append(exprLeft.b); }
+          String cond = _exprLeft.b.toString();             // The exprLeft contains till now the condition term. 
+          _exprLeft.b.setLength(0);                         // clear exprLeft, use as destination
+          VhdlExprTerm.ExprType assignType1 = assignType !=null ? assignType : _exprLeft.exprType_;
+          genTrueFalse(_exprLeft.b, assignType1, cond, lastPart, mdl, nameInnerClassVariable, bInsideProcess, indent, assignTerm, dbgStop);
+          _exprLeft.exprType_.set(assignType1);             // The expression represents the trueFalseValue, with this type.   
+          if(out !=null) { out.append(indent).append(_exprLeft.b); }
         }
         else {
           if(out !=null) {                                     // produce output if given
             if(assignTerm !=null) {
-              if(exprLeft.precedSegm  != J2Vhdl_Operator.operatorMap.get("=")) {
+              if(_exprLeft.precedSegm  != J2Vhdl_Operator.operatorMap.get("=")) {
                 out.append(assignTerm);                      // do not append the assignTerm on setBits.
               }                                              // setBits contains the assign term in the proper bit selection
-              out.append(exprLeft.b).append(";");
+              out.append(_exprLeft.b).append(";");
             } else {
-              out.append(exprLeft.b);
+              out.append(_exprLeft.b);
             }
           }
         }
       }
-      exprLeft.nrOperands = nrAllOperands;                 // documents whether parenthesis may be necessary in a greater association.
+      _exprLeft.nrOperands = nrAllOperands;                 // documents whether parenthesis may be necessary in a greater association.
     } catch(Throwable exc) {
       vhdlError("Exception: " + exc.getMessage(), exprRpn);
     }
-    return exprLeft;      //on assign the assigned variable remains in the exprLeft. 
+    return _exprLeft;      //on assign the assigned variable remains in the exprLeft. 
   }
   //end::genExpressionEnd[]
     
   
   
-  private void genTrueFalse ( Appendable out, VhdlExprTerm.ExprType typeLeft, CharSequence cond, JavaSrc.ExprPart partTrueFalse_a
+  private void genTrueFalse ( Appendable out, VhdlExprTerm.ExprType typeLeft
+      , CharSequence cond, JavaSrc.ExprPart partTrueFalse_a
       , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
       , boolean bInsideProcess, CharSequence indent
       , CharSequence assignTerm, boolean dbgStop
@@ -449,7 +453,7 @@ public class J2Vhdl_GenExpr {
     ) throws Exception {
     boolean dbgStop = dbgStopArg;
     VhdlExprTerm exprRight;
-    if(StringFunctions.startsWith(exprLeft.b, "ringMstLo_Pin")) { dbgStop = true; }
+    //if(StringFunctions.startsWith(exprLeft.b, "ringMstLo_Pin")) { dbgStop = true; }
     if(dbgStop) {
       Debugutil.stop();
     }
