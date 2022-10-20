@@ -86,7 +86,7 @@ public class J2Vhdl_GenExpr {
    * See search-hit ::: dbgStop ::: to set a breakpoint for specific positions of translation code.
    * 
    */
-  public static String dbgStopExprFile = "SpiMaster.java";
+  public static String dbgStopExprFile = null; //"SpiMaster.java";
   
   public static int dbgStopLine1 = 738, dbgStopLine2 = 738;
   

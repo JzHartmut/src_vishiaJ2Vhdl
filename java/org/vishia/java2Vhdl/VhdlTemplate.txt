@@ -24,6 +24,9 @@ CONSTANT <&name> : <&type> := <&value>;
 
 === vhdlCmpnDef
 
+-- The external VHDL file <&name> is defined here. 
+--  Its file and entity name comes from annotation "@Fpga.VHDL_MODULE ( vhdlEntity = <name>" in the Java implementation file.
+--  The PORT variables comes from the implementation Java file, which should match to the VHDL file.
 COMPONENT <&name>
 PORT (
 <:for:var:vars>  <&var.sElemVhdl>: <&var.location.s> <&var.getVhdlType()> <:if:var_next>;<.if>
@@ -33,10 +36,14 @@ END COMPONENT;
 
 === vhdlCmpnCall
 
+-- The external VHDL file <&typeVhdl> is included here. 
 <:if:preAssignments>
 -- Assignments for VHDL instance inputs:
 <:for:asg:preAssignments><&asg>
 <.for><.if>
+-- <name>: <type> 
+--   ... <name> is build from <moduleName>_<className> with annotation "@Fpga.LINK_VHDL_MODULE" 
+--   ... <type> is gotten from the Java class implementation annotation "Fpga.VHDL_MODULE ( vhdlEntity = <type> )"
 <&name>: <&typeVhdl>
 PORT MAP( 
 <:for:var:vars>  <&var.name> => <&var.assgn> <:if:var_next>,<.if>

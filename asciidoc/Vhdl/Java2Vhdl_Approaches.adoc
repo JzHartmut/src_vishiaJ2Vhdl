@@ -1187,15 +1187,21 @@ For simulation on Java level, the functionality of the VHDL code should be emula
 For example for a RAM module this should be simple. 
 You may also only simulate only the basically functionality to fulfill the interface to the module. 
 
+=== Java class which emulates the given VHDL file
+
 The Java class for the given VHDL file to include it in the Java sources should start with the annotation:
 
 .Java: class definition for given VHDL file
 [source,Java]
 ----
-@Fpga.VHDL_MODULE public class RAM_SpiRamSel implements FpgaModule_ifc {
+@Fpga.VHDL_MODULE(vhdlEntity = "Vhdl_filename") public class EmulationClass implements FpgaModule_ifc {
 ----
 
-The port definition should be written as:
+The class emulates the behavior of the included VHDL file, maybe only in basically features.
+The name of the `EmulationClass` and the name of the `Vhdl_filename` should be the same or similar
+to find the coherence. But because that are different name approaches it can be slightly different. 
+
+The port definition in the `Emulation class` should be written following the port definition in the orginal VHDL file, for example:
 
 .Java: port definition for given VHDL file
 [source,Java]
@@ -1217,27 +1223,49 @@ The port definition should be written as:
   public Output output = new Output();
 ----
 
-This is for the example with the RAM block VHDL. Its original VHDL port definition is:
-
-.VHDL: port definition in the given VHDL file
-[source,VHDL]
-----
-entity RAM_SpiRamSel is
-    port (
-        Clock: in  std_logic; 
-        ClockEn: in  std_logic; 
-        Reset: in  std_logic; 
-        WE: in  std_logic; 
-        Address: in  std_logic_vector(6 downto 0); 
-        Data: in  std_logic_vector(7 downto 0); 
-        Q: out  std_logic_vector(7 downto 0));
-end RAM_SpiRamSel;
-----
+This is for the example with the RAM block VHDL. See next chapter for VHDL result:
 
 The rest of the class file contains the emulation of the functionality in any desired kind,
 for your own and responsible, without influence to the Java2VHDL translation. 
 The `step(...)` and the `update()` operation should be overridden from the `FpgaModule_ifc`
 as given in the `class` definition and due to the general approaches for simulation. 
+
+
+=== Definition of the module
+
+The external VHDL file should be included with its emulation class as module in the :
+
+.Java: port definition for given VHDL file
+[source,Java]
+----
+  class Modules {
+    ....
+    public final EmulationClass localName = new EmulationClass();
+----
+
+Because of the annotation [J]`@Fpga.VHDL_MODULE(vhdlEntity = "Vhdl_filename")`
+the definition of the VHDL component is included, due to the example above:
+
+.VHDL: component definition in the given VHDL file
+[source,VHDL]
+----
+-- The external VHDL file RAM_SpiRamSel is defined here. 
+--  Its file and entity name comes from annotation "@Fpga.VHDL_MODULE ( vhdlEntity = <name> in the Java implementation file.
+--  The PORT variables comes from the implementation Java file, which should match to the VHDL file.
+COMPONENT RAM_SpiRamSel
+PORT (
+  Clock: IN STD_LOGIC ;
+  ClockEn: IN STD_LOGIC ;
+  Reset: IN STD_LOGIC ;
+  WE: IN STD_LOGIC ;
+  Address: IN STD_LOGIC_VECTOR(6 DOWNTO 0) ;
+  Data: IN STD_LOGIC_VECTOR(7 DOWNTO 0) ;
+  Q: OUT STD_LOGIC_VECTOR(7 DOWNTO 0) 
+ );
+END COMPONENT;
+----
+
+=== Usage of the module
 
 For usage of the module in a Java2VHDL generated Java source it needs an inner class
 with annotation:
@@ -1245,15 +1273,48 @@ with annotation:
 .Java: usage of given VHDL file in Java code for generation, inner class
 [source,Java]
 ----
-  @Fpga.LINK_VHDL_MODULE("ram") private static final class Ram{
+  @Fpga.LINK_VHDL_MODULE private static final class Ram {
 ----
 
-Inside the class the constructor should be written in the following kind:
+This class can have some interim variables to organize the mapping, for example:
+
+.Java: usage of given VHDL file in Java code for generation, interim variables
+[source,Java]
+----
+    @Fpga.STDVECTOR(8) final int ramData;
+    @Fpga.STDVECTOR(7) final int ramAddr;
+    
+    Ram() {
+      this.ramData = 0;
+      this.ramAddr = 0;
+    }
+----
+
+The default constructor is for simulation only. It is the 0-set adequate "reset" in the hardware.
+
+The here defined variables are assembled in a record and SIGNAL record definition, adequate to the example:
+
+.VHDL: component definition in the given VHDL file
+[source,VHDL]
+----
+TYPE TxSpe_Ram_REC IS RECORD
+  ramData : STD_LOGIC_VECTOR(7 DOWNTO 0);
+  ramAddr : STD_LOGIC_VECTOR(6 DOWNTO 0);
+END RECORD TxSpe_Ram_REC;
+
+  .....
+  
+SIGNAL txSpe_Ram : TxSpe_Ram_REC;
+----
+
+That are combinatoric values.
+
+Inside the class the constructor should be written in the following kind (example):
 
 .Java: usage of given VHDL file in Java code for generation, constructor
 [source,Java]
 ----
-    @Fpga.LINK_VHDL_MODULE("ram") Ram(int time, RAM_SpiRamSel vhdlMdl, Modules modules, Ref ref, TxSpe thism) {
+    @Fpga.LINK_VHDL_MODULE Ram(int time, RAM_SpiRamSel vhdlMdl, Modules modules, Ref ref, TxSpe thism) {
       RAM_SpiRamSel vhdlMdl1 = modules.ram;
       this.ramAddr = Fpga.getBit(ref.dcmd.wrSelectSpeSlaveToTx(), 15) ? Fpga.getBits(ref.dcmd.wrSelectSpeSlaveToTx(), 14, 8) : Fpga.getBits(thism.frameSelect.ctData,9,3);
       vhdlMdl.input.Clock = Fpga.clk;
@@ -1272,18 +1333,38 @@ The constructor works in the same time as in other processes with annotation [J]
 In the [J]`step(...)` routine of the module class a [J]`this.ram_d = new Ram(...)` will be created,
 and in the update the [J]`this.ram = this.ram_d;` new instance is established for usage in the next step.
 
+As one argument of the constructor [J]`EmulationClass vhdlMdl` with the name [J]`vhdlModule` 
+the type of the emulation class is necessary for construction. This type is used from the Java2Vhdl translator
+to search the emulation class, and get its entity and file name of the VHDL file 
+from its annotation [J]`@Fpga.VHDL_MODULE ( vhdlEntity = "<name>" )` (see above).
+That is used as type name of the `PORT MAP`.
+
 For simulation the [J]`step(...)` and [J]`update()` of the [J]`@Fpga.VHDL_MODULE public class RAM...`
 is called one after another. 
 The isolation from step() and update() for a correct simulation execution is done by storing the result value
 of the VHDL module here in the [J]`ramData` internal data, 
 which is accessible only after the [J]`update()` from the wrapping [J]`@Fpga.LINK_VHDL_MODULE("ram")`.
 
+Be aware that assignments are only regarded till the `step()` operation (following by `update()`).
+After `step()` assignments to the local variables of this class stores the result of the linked modules. 
+That is because in VHDL in `PORT MAP` only an assignment between the in/out variables of the called module
+to local variables can be associated, not expressions. 
+Necessary expressions to build the correct input values are before step, 
+necessary expressions to work with the output variables are only possible as access to the intermediate variables.  
+
 The translation to VHDL code produces the following for this example:
 
+.VHDL: component call
+[source,VHDL]
 ----
+-- The external VHDL file RAM_SpiRamSel is included here. 
+
 -- Assignments for VHDL instance inputs:
 txSpe_Ram.ramAddr  <= TO_STDLOGICVECTOR(data_Data.wrSelectSpeSlaveToTx(14 DOWNTO 8))  WHEN data_Data.wrSelectSpeSlaveToTx(15)='1' ELSE txSpe_FrameSelect.ctData(9 DOWNTO 3) ;
 
+-- <name>: <type> 
+--   ... <name> is build from <moduleName>_<className> with annotation "@Fpga.LINK_VHDL_MODULE" 
+--   ... <type> is gotten from the Java class implementation annotation "Fpga.VHDL_MODULE ( vhdlEntity = <type> )"
 txSpe_Ram_vhdlMdl: RAM_SpiRamSel
 PORT MAP( 
   Clock =>  TO_STDULOGIC(clk) ,
@@ -1296,6 +1377,8 @@ PORT MAP(
  );  --PORT MAP RAM_SpiRamSel
 ----
 
+The comments in the VHDL file should show the coherence to the Java sources.
+The Assignments are only generated if there are intermediate variables. 
 
 
 

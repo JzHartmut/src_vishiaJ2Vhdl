@@ -34,7 +34,7 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
-   * <li>2022-10-20 adapt change AnnotationUse in class syntax. 
+   * <li>2022-10-20 adapt change AnnotationUse in class syntax with usage for linked VHDL modules. 
    * <li>2022-08-22 in {@link #gatherAllVariables()}: also in the top level process classes ( {@link Fpga#} annotation VHDL_PROCESS) 
    *   is possible now, gather the variables also in the top level. 
    * <li>2022-08-07 in {@link #associateActualWithTypeArgumentRefs(J2Vhdl_ModuleInstance, org.vishia.java2Vhdl.parseJava.JavaSrc.ActualArguments, Iterator)}
@@ -1341,8 +1341,9 @@ public class Java2Vhdl {
       J2Vhdl_ModuleType mdlt = esrc.getValue();
       if(mdlt instanceof J2Vhdl_ModuleVhdlType) {
         J2Vhdl_ModuleVhdlType mdlv = (J2Vhdl_ModuleVhdlType)mdlt;
+        String sVhdlModule = getVhdlModuleType(mdlv);
         OutTextPreparer.DataTextPreparer args = this.vhdlCmpnDef.createArgumentDataObj();
-        args.setArgument("name", mdlv.nameType);
+        args.setArgument("name", sVhdlModule);
         args.setArgument("vars", mdlv.io);
         this.vhdlCmpnDef.exec(wOut, args);
       }
@@ -1513,19 +1514,24 @@ public class Java2Vhdl {
           String nameiClass = iclass.get_classident();
           if(annot !=null) {            // it is an inner class for a VHDL RECORD and PROCESS
             //
+            String sVhdlModule = null;
             JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass); // search that ctor of the class
             if(ctor !=null) {                              // which is designated with @Fpga.CTOR_PROCESS
               String nameVhdlMdl = sModule  + "_" + nameiClass + "_" + "vhdlMdl";                      
               String nameInnerClassVariable = Character.toLowerCase(nameiClass.charAt(0))+ nameiClass.substring(1);
-              String vhdlMdlType = null; 
               for(JavaSrc.Argument arg : ctor.get_argument()) {
                 if(arg.get_variableName().equals("vhdlMdl")) {
                   JavaSrc.Type argType = arg.get_type();
-                  vhdlMdlType = argType.get_name();
+                  String vhdlMdlType = argType.get_name();
+                  J2Vhdl_ModuleType mdlType = this.fdata.idxModuleTypes.get(vhdlMdlType);
+                  if(mdlType == null) { J2Vhdl_GenExpr.vhdlError("module not found: " + vhdlMdlType, arg); }
+                  else {
+                    sVhdlModule = getVhdlModuleType(mdlType);        // get VHDL entity and file name form annotation on the class
+                  }
                   break;
                 }
               }
-              if(vhdlMdlType == null) {
+              if(sVhdlModule == null) {
                 J2Vhdl_GenExpr.vhdlError("LINK_VHDL_MODULE ctor must have an argument 'vhdlMdl'", ctor);
               }
               else {
@@ -1570,7 +1576,7 @@ public class Java2Vhdl {
                 } 
                 OutTextPreparer.DataTextPreparer args = this.vhdlCmpnCall.createArgumentDataObj();
                 args.setArgument("name", nameVhdlMdl);
-                args.setArgument("typeVhdl", vhdlMdlType);
+                args.setArgument("typeVhdl", sVhdlModule);
                 args.setArgument("vars", assignments);
                 args.setArgument("preAssignments", preAssignments);
                 this.vhdlCmpnCall.exec(wOut, args);
@@ -1581,6 +1587,20 @@ public class Java2Vhdl {
     
   }
 
+  
+  
+  private static String getVhdlModuleType ( J2Vhdl_ModuleType mdlType) {
+    String sVhdlMdlType = null;
+    JavaSrc.AnnotationUse annotVhdlModule = mdlType.moduleClass.getAnnotation("Fpga.VHDL_MODULE");
+    if(annotVhdlModule == null) { J2Vhdl_GenExpr.vhdlError("module should have annotation Fpga.VHDL_MODULE: ", mdlType.moduleClass); }
+    else {
+      for(JavaSrc.ParamNameValue param:  annotVhdlModule.get_param()) {
+        sVhdlMdlType = param.get_simpleValue().get_simpleStringLiteral();
+      }
+    }
+    return sVhdlMdlType;
+  }
+  
 
   /**Search the appropriate ctor of the given class which is designated with @{@link Fpga.VHDL_PROCESS}
    * @param clazz from this inner class
