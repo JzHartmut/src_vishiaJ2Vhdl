@@ -246,6 +246,18 @@ public class JavaSrc_Zbnf {
     public void set_Annotation(String val) { this.dataClassDefinition.annotation = val; }
     
     
+    /**create and add routine for the list component <TypeIdent?ImplementedInterface>. */
+    public AnnotationUse_Zbnf new_AnnotationUse( ) { 
+      AnnotationUse_Zbnf val = new AnnotationUse_Zbnf();
+      return val; //Note: needs the derived Zbnf-Type.
+    }
+    
+    /**Add the result to the list. &lt;TypeIdent?ImplementedInterface&gt;*/
+    public void add_AnnotationUse(AnnotationUse_Zbnf val) {
+      if(this.dataClassDefinition.annotationUse==null) { this.dataClassDefinition.annotationUse = new LinkedList<JavaSrc.AnnotationUse>(); }
+      this.dataClassDefinition.annotationUse.add(val.dataAnnotationUse); 
+    }
+    
     /**Set routine for the singular component &lt;String?AccessRight>. */
     public void set_AccessRight(String val) { this.dataClassDefinition.accessRight = val; }
     
@@ -5298,5 +5310,80 @@ public class JavaSrc_Zbnf {
   }
 
 
+  public static class ParamNameValue_Zbnf implements SetLineColumn_ifc {
+    /**Referenced working instance will be filled.*/
+    final JavaSrc.ParamNameValue dataParamNameValue;
+    
+    /**Default ctor for non-inherit instance. */
+    public ParamNameValue_Zbnf ( ) {
+      this.dataParamNameValue = new JavaSrc.ParamNameValue();
+    }
+    
+    /**ctor called as super ctor possible, not in any case for a inherited instance. */
+    public ParamNameValue_Zbnf ( JavaSrc.ParamNameValue data) {
+            this.dataParamNameValue = data;
+    }
+    
+    @Override public int setLineColumnFileMode ( ) {
+      return SetLineColumn_ifc.mLine + SetLineColumn_ifc.mColumn + SetLineColumn_ifc.mFile; }
+    
+    @Override public void setLineColumnFile ( int line, int column, String sFile) { 
+      this.dataParamNameValue._srcLine_ = line; 
+      this.dataParamNameValue._srcColumn_ = column; 
+      this.dataParamNameValue._srcFile_ = sFile; 
+    }
+    
+    public void set_paramName(String val) { this.dataParamNameValue.paramName = val; }
+  
+    
+    public SimpleValue_Zbnf new_simpleValue() {
+      return new SimpleValue_Zbnf(); 
+    }
+    
+    public void set_simpleValue(SimpleValue_Zbnf val) {
+      this.dataParamNameValue.simpleValue = val.dataSimpleValue; 
+    }
+    
+  }
+  
+  
+  public static class AnnotationUse_Zbnf implements SetLineColumn_ifc {
+    /**Referenced working instance will be filled.*/
+    final JavaSrc.AnnotationUse dataAnnotationUse;
+    
+    /**Default ctor for non-inherit instance. */
+    public AnnotationUse_Zbnf ( ) {
+      this.dataAnnotationUse = new JavaSrc.AnnotationUse();
+    }
+    
+    /**ctor called as super ctor possible, not in any case for a inherited instance. */
+    public AnnotationUse_Zbnf ( JavaSrc.AnnotationUse data) {
+            this.dataAnnotationUse = data;
+    }
+    
+    @Override public int setLineColumnFileMode ( ) {
+      return SetLineColumn_ifc.mLine + SetLineColumn_ifc.mColumn + SetLineColumn_ifc.mFile; }
+    
+    @Override public void setLineColumnFile ( int line, int column, String sFile) { 
+      this.dataAnnotationUse._srcLine_ = line; 
+      this.dataAnnotationUse._srcColumn_ = column; 
+      this.dataAnnotationUse._srcFile_ = sFile; 
+    }
+    
+    public void set_name(String val) { this.dataAnnotationUse.name = val; }
+  
+    
+    public ParamNameValue_Zbnf new_param() {
+      return new ParamNameValue_Zbnf(); 
+    }
+    
+    public void set_param(ParamNameValue_Zbnf val) {
+      if(this.dataAnnotationUse.param ==null) { this.dataAnnotationUse.param = new LinkedList<JavaSrc.ParamNameValue>(); } 
+      this.dataAnnotationUse.param.add(val.dataParamNameValue); 
+    }
+    
+  }
+  
+  
 }
 

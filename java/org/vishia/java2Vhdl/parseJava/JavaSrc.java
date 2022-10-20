@@ -31,6 +31,7 @@ public class JavaSrc extends JavaSrc_Base {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-10-20 new {@link AnnotationUse} and {@link ParamNameValue} also in syntax definition, better evaluation of annotations.  
    * <li>2022-10-19 bugfix {@link Expression#prep(List, Appendable)}: Now also an unary operator of an nested expression is regarded.
    *   It was missing. "a * -(c/d)" or "NOT state == StateXY". Till now only the unary operator for a simple operand was regarded.
    * <li>2022-10-19 Expression.toString(...) changed back to version ~2022-03 because test of RPN , without source information
@@ -896,7 +897,17 @@ public class JavaSrc extends JavaSrc_Base {
   
   
   
-  
+    /**Simple operation to get a specific annotation
+     * @param name name of the annotation
+     * @return
+     */
+    public AnnotationUse getAnnotation(String name) {
+      if(super.annotationUse == null) return null;
+      for(AnnotationUse annot: super.annotationUse) {
+        if(annot.name.equals(name)) return annot;
+      }
+      return null;
+    }
   
     @Override public String toString ( ) { 
       return super.classident;
@@ -1788,6 +1799,21 @@ public class JavaSrc extends JavaSrc_Base {
   
   }
 
+  
+  
+  public static class ParamNameValue extends JavaSrc_Base.ParamNameValue_Base {
 
+    @Override public String toString ( ) { 
+      return "TODO toString";
+    }
+  }
+
+  
+  public static class AnnotationUse extends JavaSrc_Base.AnnotationUse_Base {
+
+    @Override public String toString ( ) { 
+      return "TODO toString";
+    }
+  }
 }
 

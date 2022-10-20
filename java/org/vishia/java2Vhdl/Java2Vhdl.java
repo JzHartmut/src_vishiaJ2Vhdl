@@ -34,6 +34,7 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-10-20 adapt change AnnotationUse in class syntax. 
    * <li>2022-08-22 in {@link #gatherAllVariables()}: also in the top level process classes ( {@link Fpga#} annotation VHDL_PROCESS) 
    *   is possible now, gather the variables also in the top level. 
    * <li>2022-08-07 in {@link #associateActualWithTypeArgumentRefs(J2Vhdl_ModuleInstance, org.vishia.java2Vhdl.parseJava.JavaSrc.ActualArguments, Iterator)}
@@ -485,8 +486,7 @@ public class Java2Vhdl {
         if(parseResult.getSize_classDefinition() >0) //...for
         for(JavaSrc.ClassDefinition pclass: parseResult.get_classDefinition()) {  //typical one class, maybe more package private classes
           String className = pclass.get_classident();      // should contain only one public class.
-          String sClassAnnot = pclass.get_Annotation();
-          boolean isVhdlMdl = sClassAnnot !=null && sClassAnnot.contains("Fpga.VHDL_MODULE");
+          boolean isVhdlMdl = pclass.getAnnotation("Fpga.VHDL_MODULE") !=null;
           final J2Vhdl_ModuleType moduleType;
           if(isVhdlMdl) {
             moduleType= new J2Vhdl_ModuleVhdlType(className, parseResult, pclass, bTopLevel);
@@ -497,8 +497,7 @@ public class Java2Vhdl {
           if(this.fdata.topInstance ==null) { //bTopLevel) {                                      // build an module instance also from the top level file as Module
             this.fdata.topInstance = new J2Vhdl_ModuleInstance(className, null, moduleType, false, null, null);
           }
-          String sAnnot = pclass.get_Annotation();
-          if(sAnnot == null || !sAnnot.contains("Fpga.VHDL_MODULE")) {
+          if(!isVhdlMdl) { //sAnnot == null || !sAnnot.contains("Fpga.VHDL_MODULE")) {
             JavaSrc.ClassContent zClassC = pclass.get_classContent();
             //
             if(zClassC.getSize_classDefinition() >0) //...for // iterate over all inner classes to search a Modules class
@@ -1176,10 +1175,10 @@ public class Java2Vhdl {
       Iterable<JavaSrc.ClassDefinition> iclasses = theClassC.get_classDefinition(); 
       if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
         String nameiClass = iclass.get_classident();
-        String annotation = iclass.get_Annotation();
-        if( annotation !=null && (annotation.equals("Fpga.VHDL_PROCESS") || annotation.startsWith("Fpga.LINK_VHDL_MODULE")) 
+        JavaSrc.AnnotationUse annotLinkVhdl = iclass.getAnnotation("Fpga.LINK_VHDL_MODULE");
+        JavaSrc.AnnotationUse annotProcess = iclass.getAnnotation("Fpga.VHDL_PROCESS");
+        if( annotLinkVhdl !=null || annotProcess !=null 
          || nameiClass.equals("In") || nameiClass.equals("Out")) {
-//        if( (!isToplevel || !nameiClass.equals("In") && !nameiClass.equals("Out")) && !nameiClass.equals("Ref") && !nameiClass.equals("Modules")) {
           final String nameProcess = nameModule + "_" + nameiClass;
           this.genExpr.setInnerClass(nameProcess, nameModule);              // records from all inner classes, same name as type
           this.genExpr.mapVariables(nameModule, nameTheClass, iclass);
@@ -1368,8 +1367,10 @@ public class Java2Vhdl {
         for(JavaSrc.ClassDefinition iclass : theClassC.get_classDefinition()) { // get inner class of public module class  
           final String nameiClass = iclass.get_classident();
           JavaSrc.ClassContent iClassC = iclass.get_classContent();
-          String sAnnot = iclass.get_Annotation();
-          if(sAnnot !=null && (sAnnot.equals("Fpga.VHDL_PROCESS") || sAnnot.startsWith("Fpga.LINK_VHDL_MODULE")) && iClassC.getSize_variableDefinition() >0
+          JavaSrc.AnnotationUse annotLinkVhdl = iclass.getAnnotation("Fpga.LINK_VHDL_MODULE");
+          JavaSrc.AnnotationUse annotProcess = iclass.getAnnotation("Fpga.VHDL_PROCESS");
+          if( (annotLinkVhdl !=null || annotProcess !=null) 
+            && iClassC.getSize_variableDefinition() >0
             || ( !result.isTopLevel() && (nameiClass.equals("In") || nameiClass.equals("Out")) ) ) {
             final String nameRecord = nameModule + "_" + nameiClass;
             this.genExpr.setInnerClass(nameRecord, nameModule);
@@ -1398,6 +1399,14 @@ public class Java2Vhdl {
    * @throws IOException
    */
   void genRecordInstances(Appendable wOut) throws IOException{
+    wOut.append("\n-- == Definition of record instances for the processes:");
+    wOut.append("\n-- VHDL-Syntax:          SIGNAL <signalName> : <typeName>");
+    wOut.append("\n--SIGNAL {<&nameModule>_}<&nameProcessClass> : <&nameClass>_<&nameProcessClass>_REC");
+    wOut.append("\n--   ... <&nameModule> is defined in  class Modules{...}  in top level Java file, name of the module instance.");
+    wOut.append("\n--   ... <&nameModule> for Process classes in toplevel: name of the top level class and Java file (start with upper case).");
+    wOut.append("\n--   ... more <&nameModule> can be defined in  class Modules{...}  in the module Java file, nested modules.");
+    wOut.append("\n--   ... <&nameProcessClass> is the name of the inner class in the Java module, same as instance name of the process");
+    wOut.append("\n--   ... <&nameClass> is the type name of the modul's class");
     boolean isTopLevel = false;  //only modules stored which are not top level.
     for(Map.Entry<String, J2Vhdl_ModuleInstance> esrc: this.fdata.idxModules.entrySet()) {                         // all sources
       J2Vhdl_ModuleInstance moduleInstance = esrc.getValue();
@@ -1410,10 +1419,13 @@ public class Java2Vhdl {
       if(iclasses !=null) { 
         for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
           String nameiClass = iclass.get_classident();
-          String sAnnot = iclass.get_Annotation();
           JavaSrc.ClassContent iClassC = iclass.get_classContent();
-          if(sAnnot !=null && (sAnnot.equals("Fpga.VHDL_PROCESS") || sAnnot.contains("Fpga.LINK_VHDL_MODULE")) && iClassC.getSize_variableDefinition() >0
-             || ( !isTopLevel && (nameiClass.equals("In") || nameiClass.equals("Out")) ) ) {
+          JavaSrc.AnnotationUse annotLinkVhdl = iclass.getAnnotation("Fpga.LINK_VHDL_MODULE");
+          JavaSrc.AnnotationUse annotProcess = iclass.getAnnotation("Fpga.VHDL_PROCESS");
+          if( (annotLinkVhdl !=null || annotProcess !=null) 
+           && iClassC.getSize_variableDefinition() >0   //meta data preparation for linked VHDL modules
+           || ( !isTopLevel && (nameiClass.equals("In") || nameiClass.equals("Out")) ) // In and Out are only records for non-top level, for value-dataflow
+            ) {
             final String nameProcess = nameModule + "_" + nameiClass;
             final String nameRecord = nameClass + "_" + nameiClass + "_REC";
             wOut.append("\nSIGNAL ").append(nameProcess).append(" : ").append(nameRecord).append(";");
@@ -1454,10 +1466,9 @@ public class Java2Vhdl {
       JavaSrc.ClassContent theClassC = theclass.get_classContent();
       Iterable<JavaSrc.ClassDefinition> iclasses = theClassC.get_classDefinition(); 
         if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
-          String sAnnot = iclass.get_Annotation();
           String nameiClass = iclass.get_classident();
-          if(sAnnot !=null && sAnnot.equals("Fpga.VHDL_PROCESS")) {            // it is an inner class for a VHDL RECORD and PROCESS
-            //
+          if(iclass.getAnnotation("Fpga.VHDL_PROCESS") !=null) {
+          //
             String namePrc = sModule  + "_" + nameiClass;                      // search that ctor of the class
             String nameInnerClassVariable = Character.toLowerCase(nameiClass.charAt(0))+ nameiClass.substring(1);
             JavaSrc.ConstructorDefinition ctor = this.genStmnt.getCtorProcess(iclass, nameInnerClassVariable); // which is designated with @Fpga.CTOR_PROCESS
@@ -1498,9 +1509,9 @@ public class Java2Vhdl {
       JavaSrc.ClassContent theClassC = theclass.get_classContent();
       Iterable<JavaSrc.ClassDefinition> iclasses = theClassC.get_classDefinition(); 
         if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
-          String sAnnot = iclass.get_Annotation();
+          JavaSrc.AnnotationUse annot = iclass.getAnnotation("Fpga.LINK_VHDL_MODULE");
           String nameiClass = iclass.get_classident();
-          if(sAnnot !=null && sAnnot.startsWith("Fpga.LINK_VHDL_MODULE")) {            // it is an inner class for a VHDL RECORD and PROCESS
+          if(annot !=null) {            // it is an inner class for a VHDL RECORD and PROCESS
             //
             JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass); // search that ctor of the class
             if(ctor !=null) {                              // which is designated with @Fpga.CTOR_PROCESS
@@ -1523,24 +1534,6 @@ public class Java2Vhdl {
                 boolean bStepSeen = false;                 // before step() there may be assignments
                 List<StringBuilder> preAssignments = null;
                 for(JavaSrc.Statement stmnt: ctor.get_statement()) {             // all first level statements in the ctor
-                  //CharSequence txt = this.vhdlConv.genStatement(stmnt, 1);
-                  if(stmnt.getSize_variableDefinition()>0) {   // search a intermediate reference in statements
-                    JavaSrc.VariableInstance varDef = stmnt.get_variableDefinition().iterator().next(); // only one variable per stmnt accepted.
-                    String varName = varDef.get_variableName();
-                    if(varName.equals("vhdlMdl1")) {
-                      JavaSrc.Type argType = varDef.get_type();
-                      vhdlMdlType = argType.get_name();
-                      JavaSrc.Expression initialValue = varDef.get_Expression();
-                      if(initialValue == null) {
-                        J2Vhdl_GenExpr.vhdlError("internal reference should be initializes", stmnt);
-                      } else {
-                        JavaSrc.ExprPart exprPart = initialValue.get_ExprPart().iterator().next();
-                        JavaSrc.SimpleValue refValue = exprPart.get_value();
-                        VhdlExprTerm.RefModuleInfo mdlRefInfo = VhdlExprTerm.getReferencedModule(refValue, moduleInstance, null);
-                        Debugutil.stop();  //not used yet, concept not ready.
-                      }
-                    }
-                  }
                   JavaSrc.Expression expr = stmnt.get_Expression();
                   if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
                     

@@ -177,7 +177,7 @@ public class JavaSrc_Base extends SrcInfo {
     
     protected String annotation;
     
-    
+    protected List<JavaSrc.AnnotationUse> annotationUse;
     
     protected String accessRight;
     
@@ -253,9 +253,15 @@ public class JavaSrc_Base extends SrcInfo {
     
     
     /**Access to parse result.*/
-    public String get_Annotation() { return annotation; }
+    public String get_XXXAnnotation() { return annotation; }
     
+    /**Access to parse result, get the elements of the container ImplementedInterface*/
+    public Iterable<JavaSrc.AnnotationUse> get_AnnotationUse() { return this.annotationUse; }
     
+    /**Access to parse result, get the size of the container ImplementedInterface.*/
+    public int getSize_AnnotationUse() { return this.annotationUse ==null ? 0 : this.annotationUse.size(); }
+    
+
     
     
     /**Access to parse result.*/
@@ -4826,6 +4832,29 @@ public class JavaSrc_Base extends SrcInfo {
   
   }
 
-
+  public static class ParamNameValue_Base extends SrcInfo {
+    protected String paramName;
+    protected JavaSrc.SimpleValue simpleValue;
+    
+    public String get_paramName ( ) { return this.paramName; }
+    public JavaSrc.SimpleValue get_simpleValue ( ) { return this.simpleValue; }
+  }
+  
+  
+  public static class AnnotationUse_Base extends SrcInfo {
+    protected String name;
+    protected List<JavaSrc.ParamNameValue> param;
+    
+    public String get_name ( ) { return this.name; }
+    /**Access to parse result, get the elements of the container importStatement*/
+    public Iterable<JavaSrc.ParamNameValue> get_param() { return this.param; }
+    
+    /**Access to parse result, get the size of the container importStatement.*/
+    public int getSize_param() { return this.param ==null ? 0 : this.param.size(); }
+    
+  }
+  
+  
+  
 }
 

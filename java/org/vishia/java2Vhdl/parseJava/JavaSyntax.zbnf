@@ -319,9 +319,15 @@ enumDefinition::= [|<AccessRight>] enum <$?enumTypeIdent> \{  [{<?*enumElement> 
 ]
 \}.
 
+
+ParamNameValue::= [<$?paramName> = ] <simpleValue>.
+
+AnnotationUse::= <$\.?name> [ ( { <ParamNameValue?param> ? , } ) ]. 
+
 ##NOTE: write <AccessRight> at last position of alternative because if 'package private' is set (no keyword, no content), the repetition is broken off.
 ##      it is a Java specification problem!
-ModifierClass::=[ static<?isStatic> | final<?isFinal> | abstract<?isAbstract>  | @Java4C\.<Java4CAnnotationClass> | @[<?Annotation>{<$?>?\.} [(<*)?>)]] | <AccessRight> ].
+##ModifierClass::=[ static<?isStatic> | final<?isFinal> | abstract<?isAbstract>  | @Java4C\.<Java4CAnnotationClass> | @[<?Annotation>{<$?>?\.} [(<*)?>)]] | <AccessRight> ].
+ModifierClass::=[ static<?isStatic> | final<?isFinal> | abstract<?isAbstract>  | @Java4C\.<Java4CAnnotationClass> | @[<AnnotationUse>] | <AccessRight> ].
 
 ModifierVariable::={ static<?&isStatic> | final<?&isFinal> | volatile<?&isVolatile> | transient<?&isTransient> 
 | @AccessPolicy\.<$?accessPlolicy> | @ReadOnly<?&isReadonly>  
