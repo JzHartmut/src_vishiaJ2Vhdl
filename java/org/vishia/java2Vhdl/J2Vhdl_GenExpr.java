@@ -26,6 +26,8 @@ public class J2Vhdl_GenExpr {
   
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-20 {@link #genExpression(Appendable, org.vishia.java2Vhdl.parseJava.JavaSrc.Expression, boolean, boolean, J2Vhdl_ModuleInstance, String, CharSequence, CharSequence, org.vishia.java2Vhdl.VhdlExprTerm.ExprType)}:
+   *   now a part "@ <unaryOp>@" is regarded. apply unary operator to the current _leftExpression 
    * <li>2022-08-19 improve debug possibilities: {@value #dbgStopExprFile} etc. 
    * <li>2022-08-16 bugfix unnecessary "='1'" because convertToBool(...), correct using fulfillNeedBool(...)
    * <li>2022-08-16 rename to J2Vhdl_GenExpr and copy some parts to J2Vhdl_GenStmnt from "VhdlConv". Better name, better sorted.
@@ -74,7 +76,7 @@ public class J2Vhdl_GenExpr {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2022-04-28"; 
+  public final static String sVersion = "2022-10-20"; 
 
   public final J2Vhdl_FpgaData fdata;
   
@@ -84,7 +86,7 @@ public class J2Vhdl_GenExpr {
    * See search-hit ::: dbgStop ::: to set a breakpoint for specific positions of translation code.
    * 
    */
-  public static String dbgStopExprFile = null; //"SpiMaster.java";
+  public static String dbgStopExprFile = "SpiMaster.java";
   
   public static int dbgStopLine1 = 738, dbgStopLine2 = 738;
   
@@ -275,11 +277,15 @@ public class J2Vhdl_GenExpr {
         J2Vhdl_Operator opPreced = getOperator(part, _exprLeft, genBool);
         //
         //pop
-        final VhdlExprTerm _exprRight;                      // right side expression segment from left for operation in stack.
-        if(part.get_value() ==null) {                      // "@"  // use the accu as operand, pop leftExpr from stack:
-          _exprRight = _exprLeft;                            // then the current expression is the right part, sOperand
-          _exprLeft = _uStack.pop();                         // pop: continue with pushed expression as left part
-          bUseTrueFalse = partTrueFalse !=null;            // after pop a last partTrueFalse should be evaluated
+        final VhdlExprTerm _exprRight;                     // right side expression segment from left for operation in stack.
+        if(part.get_value() ==null) {                      // "@"  // use the accu as operand:
+          if(opPreced.sJava.equals("@")) {                 // "@ -@" an unary operator is given for the current value in accu, 
+            _exprRight = null;                             // apply the unary operator to _leftExpr in _exprLeft.addOperand(...)
+          } else {                                         // , pop leftExpr from stack
+            _exprRight = _exprLeft;                            // then the current expression is the right part, sOperand
+            _exprLeft = _uStack.pop();                         // pop: continue with pushed expression as left part
+            bUseTrueFalse = partTrueFalse !=null;            // after pop a last partTrueFalse should be evaluated
+          }
         } else { 
           _exprRight = null;                                // no pop, then exprRight is empty.
           //push

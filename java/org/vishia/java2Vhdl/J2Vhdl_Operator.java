@@ -100,7 +100,15 @@ public class J2Vhdl_Operator {
   }
 
   
-  
+  /**Map of all operators. Key is the Java writing text.
+   * The map will be filled statically on loading the class.
+   */
+  final static Map<String, J2Vhdl_Operator> operatorUnaryMap = new TreeMap<String, J2Vhdl_Operator>();
+  static { 
+    operatorUnaryMap.put("!",   new J2Vhdl_Operator( "!",   20, "NOT ",   "NOT ",    20, true, OpBool.isBool, null ));  
+    operatorUnaryMap.put("~",   new J2Vhdl_Operator( "~",   20, "NOT ",   "NOT ",    20, true, OpBool.maybeBool, null ));
+    operatorUnaryMap.put("-",   new J2Vhdl_Operator( "-",   20, "- ",   "- ",    20, false, OpBool.indepBool, null ));
+  }
   
   
   @Override public String toString() { return this.sVhdlVal; }

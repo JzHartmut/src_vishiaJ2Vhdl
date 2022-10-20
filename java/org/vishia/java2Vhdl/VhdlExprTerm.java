@@ -15,6 +15,7 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-20 bugfix regard unary operator for a nested expression, "NOT state == StateXY" or "NOT(a AND b)" 
    * <li>2022-10-15 chg {@link #addOperand(VhdlExprTerm, J2Vhdl_Operator, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, boolean, J2Vhdl_ModuleInstance, String)}:
    *   The type for state comparison is now bittype, without conversion to boolean.
    *   With them the VHDL is simplified if a result is also a bit. 
@@ -88,7 +89,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2022-07-28"; 
+  public final static String sVersion = "2022-10-20"; 
 
   
   /**Type of a variable and a build expression.
@@ -351,6 +352,20 @@ public final class VhdlExprTerm extends SrcInfo {
     else if(exprRightArg !=null) {                              // exprRightArg is than given if it comes from the operand precedence. It is calculated independent. 
       exprRight = exprRightArg;                             // use given exprRight, maybe a more complex term
     }
+    else if(opPreced.sJava.equals("@")) {                  // it is an unary operation with the left value
+      String sUnaryOp = part.get_unaryOperator();
+      if(sUnaryOp ==null) { 
+        J2Vhdl_GenExpr.vhdlError("RPN @ @ without unary operator: ", part); 
+      } else {
+        J2Vhdl_Operator unaryOp = J2Vhdl_Operator.operatorUnaryMap.get(sUnaryOp);
+        if(unaryOp !=null) {
+          this.b.insert(0, "(").insert(0,unaryOp.sVhdlBool).append(")");
+        } else {
+          J2Vhdl_GenExpr.vhdlError("faulty unary operator: " + sUnaryOp, part);
+        }
+      }
+      exprRight = null;
+    }
     else {                                                 // prepare the exprRight from part to add to this.
       // in boolean expressions it is often better to write immediately "variable = '1'" from any element for maybe boolean operations.
       final boolean bNeedBoolRight = opPreced.opBool.bMaybeBool   //operator is possible a boolean operator 
@@ -371,8 +386,14 @@ public final class VhdlExprTerm extends SrcInfo {
     if(exprRight !=null && exprRight.exprType_.etype != ExprTypeEnum.timeVar && exprRight.exprType_.etype != ExprTypeEnum.maskVar) {
       //
       if(exprRight.exprType_.etype == VhdlExprTerm.ExprTypeEnum.stateBit) {
-        assert(opPreced.sJava.equals("=="));
-        this.b.append("(").append(exprRight.b).append(")");  // This is only a simple access to the proper bit of the state variable vector.
+        if(exprRight.bNot) {
+          assert(opPreced.sJava.equals("!="));
+          this.b.insert(0, "NOT ");
+          this.b.append("(").append(exprRight.b).append(")");  // This is only a simple access to the proper bit of the state variable vector.
+        } else {
+          assert(opPreced.sJava.equals("=="));
+          this.b.append("(").append(exprRight.b).append(")");  // This is only a simple access to the proper bit of the state variable vector.
+        }
         this.exprType_.nrofElements = 0;
         assert(this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype);
         this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bittype;   // a selected state by == ..State is always a simple BIT because the state vector is a BIT_VECTOR
@@ -519,11 +540,16 @@ public final class VhdlExprTerm extends SrcInfo {
       throws Exception {
     String sUnaryOp = val.get_unaryOperator();             // unary operator
     if(sUnaryOp !=null && !needBool) {
-      if(sUnaryOp.equals("!")) { sUnaryOp = " NOT "; }     // logical NOT
-      else if(sUnaryOp.equals("~")) { sUnaryOp = " NOT "; }// bitwise NOT
-      else;                                                // unary  + or - remains.
-      this.b.append(sUnaryOp);
-      this.posAfterUnary = this.b.length();
+      J2Vhdl_Operator unaryOp = J2Vhdl_Operator.operatorUnaryMap.get(sUnaryOp);
+      if(unaryOp !=null) {
+  //      if(sUnaryOp.equals("!")) { sUnaryOp = " NOT "; }     // logical NOT
+  //      else if(sUnaryOp.equals("~")) { sUnaryOp = " NOT "; }// bitwise NOT
+  //      else;                                                // unary  + or - remains.
+        this.b.append(unaryOp.sVhdlBool);
+        this.posAfterUnary = this.b.length();
+      } else {
+        J2Vhdl_GenExpr.vhdlError("faulty unary operator: " + sUnaryOp, val);
+      }
     }
     //======>>>>>>>>>>>>>>>
     boolean bOk = true;
@@ -725,19 +751,21 @@ public final class VhdlExprTerm extends SrcInfo {
       if(varName.equals("fast"))
         Debugutil.stop();
 
-      if(this.precedSegm.sJava.equals("==")) {           // If a equate operator is given, and the expression is a State contant:
+      if(  this.precedSegm.sJava.equals("==")
+        || this.precedSegm.sJava.equals("!=")  ) {         // If a equate operator is given, check whether the right side is a State constant:
         final String sNameBit;
         if(mdlRefInfo !=null && mdlRefInfo.bRefToType) {                                 
-          sNameBit = sNameIclass + "_" + varName;        // to another Type
+          sNameBit = sNameIclass + "_" + varName;          // to another Type
         } else {
-          String mdlType = mdlRef.type.nameType;         // The own type
+          String mdlType = mdlRef.type.nameType;           // The own type
           sNameBit = mdlType + "_" + sNameIclass + "_" + varName;
         }
-        String snrBit = J2Vhdl_GenExpr.d.fdata.idxEnumBitDef.get(sNameBit);
+        String snrBit = J2Vhdl_GenExpr.d.fdata.idxEnumBitDef.get(sNameBit);  //search the right var, check ident is a state enum const
         if(snrBit !=null) {
           Debugutil.stop();
           this.b.append(snrBit);
-          this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stateBit;
+          this.bNot = this.precedSegm.sJava.equals("!=");
+          this.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stateBit;  // makr it with stateBit, check and generate access in calling level
         }
       }
       if(this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.stateBit) {  // not a state bit in succession of the branch immediately above.

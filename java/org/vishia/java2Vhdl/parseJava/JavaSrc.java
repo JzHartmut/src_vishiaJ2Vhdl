@@ -31,6 +31,8 @@ public class JavaSrc extends JavaSrc_Base {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-10-19 bugfix {@link Expression#prep(List, Appendable)}: Now also an unary operator of an nested expression is regarded.
+   *   It was missing. "a * -(c/d)" or "NOT state == StateXY". Till now only the unary operator for a simple operand was regarded.
    * <li>2022-10-19 Expression.toString(...) changed back to version ~2022-03 because test of RPN , without source information
    * <li>2022-03-29 new {@link Statement#isAssignExpr()}
    * <li>2022-03-29 Hartmut chg: {@link Expression#prep(Appendable)}: It must not return a new Expression, 
@@ -67,7 +69,7 @@ public class JavaSrc extends JavaSrc_Base {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String version = "2022-07-30"; 
+  public final static String version = "2022-10-20"; 
 
 
   public void postPrepare() throws IOException {
@@ -523,6 +525,12 @@ public class JavaSrc extends JavaSrc_Base {
           String sUnary = part.value.unaryOperator;
           part.value = null;                   //dstExprexpression value is already evaluated and stored in dstExpr.exprPart
           innerExpr.prep(partsNew, log);
+          if(sUnary !=null)  {                             // it is the unary operation for the nested expression
+            ExprPart partUnary = new ExprPart();
+            partUnary.sUnaryOp = sUnary;
+            partUnary.operator = "@";
+            partsNew.add(partUnary);
+          }
           Debugutil.stop();
         }
         if(part.value != null) {                 // it is null on a nested expression before which is not an assignment
