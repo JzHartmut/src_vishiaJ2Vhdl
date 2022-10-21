@@ -1512,76 +1512,81 @@ public class Java2Vhdl {
         if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
           JavaSrc.AnnotationUse annot = iclass.getAnnotation("Fpga.LINK_VHDL_MODULE");
           String nameiClass = iclass.get_classident();
-          if(annot !=null) {            // it is an inner class for a VHDL RECORD and PROCESS
+          if(annot !=null || nameiClass.startsWith("Vhdlink_")) {            // it is an inner class for a VHDL RECORD and PROCESS
             //
-            String sVhdlModule = null;
-            JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass); // search that ctor of the class
-            if(ctor !=null) {                              // which is designated with @Fpga.CTOR_PROCESS
-              String nameVhdlMdl = sModule  + "_" + nameiClass + "_" + "vhdlMdl";                      
-              String nameInnerClassVariable = Character.toLowerCase(nameiClass.charAt(0))+ nameiClass.substring(1);
-              for(JavaSrc.Argument arg : ctor.get_argument()) {
-                if(arg.get_variableName().equals("vhdlMdl")) {
-                  JavaSrc.Type argType = arg.get_type();
-                  String vhdlMdlType = argType.get_name();
-                  J2Vhdl_ModuleType mdlType = this.fdata.idxModuleTypes.get(vhdlMdlType);
-                  if(mdlType == null) { J2Vhdl_GenExpr.vhdlError("module not found: " + vhdlMdlType, arg); }
-                  else {
-                    sVhdlModule = getVhdlModuleType(mdlType);        // get VHDL entity and file name form annotation on the class
+            J2Vhdl_ModuleInstance vhdlMdl = moduleInstance.idxSubModules.get(nameiClass.substring(8));
+            if(vhdlMdl ==null || !nameiClass.startsWith("Vhdlink_")) {
+              J2Vhdl_GenExpr.vhdlError("The name of a Vhdlink_ class should follow the instance name of the vhdl sub module.", theClassC);
+            } else {
+              String sVhdlMdlType = null;
+              JavaSrc.ConstructorDefinition ctor = getCtorVhdlCall(iclass); // search that ctor of the class
+              if(ctor !=null) {                              // which is designated with @Fpga.CTOR_LINK_MODULE
+                String nameVhdlMdl = sModule  + "_" + nameiClass + "_" + "vhdlMdl";                      
+                String nameInnerClassVariable = Character.toLowerCase(nameiClass.charAt(0))+ nameiClass.substring(1);
+                for(JavaSrc.Argument arg : ctor.get_argument()) {
+                  String sVarname = arg.get_variableName();
+                  if(sVarname.equals("vhdlMdl")) {
+                    JavaSrc.Type argType = arg.get_type();
+                    String vhdlMdlType = argType.get_name();
+                    J2Vhdl_ModuleType mdlType = this.fdata.idxModuleTypes.get(vhdlMdlType);
+                    if(mdlType == null) { J2Vhdl_GenExpr.vhdlError("module not found: " + vhdlMdlType, arg); }
+                    else {
+                      sVhdlMdlType = getVhdlModuleType(mdlType);        // get VHDL entity and file name form annotation on the class
+                    }
+                    break;
                   }
-                  break;
                 }
-              }
-              if(sVhdlModule == null) {
-                J2Vhdl_GenExpr.vhdlError("LINK_VHDL_MODULE ctor must have an argument 'vhdlMdl'", ctor);
-              }
-              else {
-                String ctorName = ctor.get_constructor();
-                List<J2Vhdl_ModuleVhdlType.Assgn> assignments = new LinkedList<J2Vhdl_ModuleVhdlType.Assgn>();
-                boolean bStepSeen = false;                 // before step() there may be assignments
-                List<StringBuilder> preAssignments = null;
-                for(JavaSrc.Statement stmnt: ctor.get_statement()) {             // all first level statements in the ctor
-                  JavaSrc.Expression expr = stmnt.get_Expression();
-                  if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
-                    
-                    StringBuilder sAssg = new StringBuilder(100);  // for one line assignment
-                    VhdlExprTerm term = this.genExpr.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=", null);
-                    int sep = sAssg.indexOf("<=");
-                    int sepe = sAssg.indexOf(";");
-                    final J2Vhdl_ModuleVhdlType.Assgn assgn;
-                    if(sep >=0) {
-                      if(term.varCurrent_.getLocation() == J2Vhdl_Variable.Location.input) {
-                        assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(0, sep).trim(), sAssg.substring(sep+2, sepe));
-                      } else if(!bStepSeen) {
-                        if(preAssignments == null) { preAssignments = new LinkedList<StringBuilder>(); }
-                        preAssignments.add(sAssg);         // assignment before vhdl instance
-                        assgn = null;                      // not for the vhdl instance
-                      } else {   //not output, output is right side of expression.
-                        assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(sep+2, sepe).trim(), sAssg.substring(0, sep));
+                if(sVhdlMdlType == null) {
+                  J2Vhdl_GenExpr.vhdlError("LINK_VHDL_MODULE ctor must have an argument 'vhdlMdl'", ctor);
+                }
+                else {
+                  String ctorName = ctor.get_constructor();
+                  List<J2Vhdl_ModuleVhdlType.Assgn> assignments = new LinkedList<J2Vhdl_ModuleVhdlType.Assgn>();
+                  boolean bStepSeen = false;                 // before step() there may be assignments
+                  List<StringBuilder> preAssignments = null;
+                  for(JavaSrc.Statement stmnt: ctor.get_statement()) {             // all first level statements in the ctor
+                    JavaSrc.Expression expr = stmnt.get_Expression();
+                    if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
+                      
+                      StringBuilder sAssg = new StringBuilder(100);  // for one line assignment
+                      VhdlExprTerm term = this.genExpr.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=", null);
+                      int sep = sAssg.indexOf("<=");
+                      int sepe = sAssg.indexOf(";");
+                      final J2Vhdl_ModuleVhdlType.Assgn assgn;
+                      if(sep >=0) {
+                        if(term.varCurrent_.getLocation() == J2Vhdl_Variable.Location.input) {
+                          assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(0, sep).trim(), sAssg.substring(sep+2, sepe));
+                        } else if(!bStepSeen) {
+                          if(preAssignments == null) { preAssignments = new LinkedList<StringBuilder>(); }
+                          preAssignments.add(sAssg);         // assignment before vhdl instance
+                          assgn = null;                      // not for the vhdl instance
+                        } else {   //not output, output is right side of expression.
+                          assgn = new J2Vhdl_ModuleVhdlType.Assgn(sAssg.substring(sep+2, sepe).trim(), sAssg.substring(0, sep));
+                        }
+                      } else {
+                        assgn = new J2Vhdl_ModuleVhdlType.Assgn("??", sAssg.toString());
                       }
-                    } else {
-                      assgn = new J2Vhdl_ModuleVhdlType.Assgn("??", sAssg.toString());
+                      if(assgn !=null) {
+                        assignments.add(assgn);
+                      }
+                    } else if(!bStepSeen && expr !=null && expr.getSize_ExprPart() ==1) {
+                      JavaSrc.ExprPart part0 = expr.get_ExprPart().iterator().next();
+                      JavaSrc.SimpleValue val0= part0.get_value();
+                      JavaSrc.SimpleMethodCall oper0;
+                      if(val0 !=null && (oper0 = val0.get_simpleMethodCall()) !=null) {
+                        String nameOper = oper0.get_methodName();
+                        bStepSeen |= nameOper.equals("step");
+                      }
                     }
-                    if(assgn !=null) {
-                      assignments.add(assgn);
-                    }
-                  } else if(!bStepSeen && expr !=null && expr.getSize_ExprPart() ==1) {
-                    JavaSrc.ExprPart part0 = expr.get_ExprPart().iterator().next();
-                    JavaSrc.SimpleValue val0= part0.get_value();
-                    JavaSrc.SimpleMethodCall oper0;
-                    if(val0 !=null && (oper0 = val0.get_simpleMethodCall()) !=null) {
-                      String nameOper = oper0.get_methodName();
-                      bStepSeen |= nameOper.equals("step");
-                    }
-                  }
-                } 
-                OutTextPreparer.DataTextPreparer args = this.vhdlCmpnCall.createArgumentDataObj();
-                args.setArgument("name", nameVhdlMdl);
-                args.setArgument("typeVhdl", sVhdlModule);
-                args.setArgument("vars", assignments);
-                args.setArgument("preAssignments", preAssignments);
-                this.vhdlCmpnCall.exec(wOut, args);
-              }
-            }
+                  } 
+                  OutTextPreparer.DataTextPreparer args = this.vhdlCmpnCall.createArgumentDataObj();
+                  args.setArgument("name", nameVhdlMdl);
+                  args.setArgument("typeVhdl", sVhdlMdlType);
+                  args.setArgument("vars", assignments);
+                  args.setArgument("preAssignments", preAssignments);
+                  this.vhdlCmpnCall.exec(wOut, args);
+                }
+            } }
         } }
       }
     

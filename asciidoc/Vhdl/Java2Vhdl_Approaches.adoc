@@ -18,7 +18,8 @@ See also:
 
 * link:Java2Vhdl_TranslatorInternals.html[] - Internals about the implementation
 
-* link:../../deploy/Example1_BlinkingLed-2022-05-26.zip[] A zip file containing an example and link to the tool base.  
+* link:../../deploy/Example_J2Vhdl_BlinkingLed-2022-10-21.zip[] A zip file containing an example and link to the tool base.  
+* link:../../deploy/Example1_BlinkingLed-2022-05-26.zip[] Old version of zip file.  
 
 //link:Java2Vhdl_StyleGuide.html[] How to work with Java for Fpga logic
 
@@ -1235,16 +1236,16 @@ as given in the `class` definition and due to the general approaches for simulat
 
 The external VHDL file should be included with its emulation class as module in the :
 
-.Java: port definition for given VHDL file
+.Java: instance definition for given VHDL file inside the Modules as sub module:
 [source,Java]
 ----
   class Modules {
     ....
-    public final EmulationClass localName = new EmulationClass();
+    public final EmulationClass vhdlModuleName = new EmulationClass();
 ----
 
 Because of the annotation [J]`@Fpga.VHDL_MODULE(vhdlEntity = "Vhdl_filename")`
-the definition of the VHDL component is included, due to the example above:
+the definition of the VHDL component is included in the generated VHDL file, due to the example above:
 
 .VHDL: component definition in the given VHDL file
 [source,VHDL]
@@ -1252,7 +1253,7 @@ the definition of the VHDL component is included, due to the example above:
 -- The external VHDL file RAM_SpiRamSel is defined here. 
 --  Its file and entity name comes from annotation "@Fpga.VHDL_MODULE ( vhdlEntity = <name> in the Java implementation file.
 --  The PORT variables comes from the implementation Java file, which should match to the VHDL file.
-COMPONENT RAM_SpiRamSel
+COMPONENT Vhdl_filename
 PORT (
   Clock: IN STD_LOGIC ;
   ClockEn: IN STD_LOGIC ;
@@ -1273,8 +1274,14 @@ with annotation:
 .Java: usage of given VHDL file in Java code for generation, inner class
 [source,Java]
 ----
-  @Fpga.LINK_VHDL_MODULE private static final class Ram {
+  @Fpga.LINK_VHDL_MODULE private static final class Vhdlink_vhdlModuleName {
 ----
+
+The class name should follow the instance name of the Vhdl module in the [J]`class Modules { ...`.
+The instance of this class (with same name with lower case first char)
+is responsible to exact this vhdl module, hence this naming convention is acceptable. 
+But the class name should start with [J]`Vhdlink_` and hence 
+the two instances for step() and update() with [J]`vhdlink_`.
 
 This class can have some interim variables to organize the mapping, for example:
 
@@ -1284,7 +1291,7 @@ This class can have some interim variables to organize the mapping, for example:
     @Fpga.STDVECTOR(8) final int ramData;
     @Fpga.STDVECTOR(7) final int ramAddr;
     
-    Ram() {
+    Vhdlink_vhdlModuleName() {
       this.ramData = 0;
       this.ramAddr = 0;
     }
@@ -1297,14 +1304,14 @@ The here defined variables are assembled in a record and SIGNAL record definitio
 .VHDL: component definition in the given VHDL file
 [source,VHDL]
 ----
-TYPE TxSpe_Ram_REC IS RECORD
+TYPE Module_Vhdlink_vhdlModuleName_REC IS RECORD
   ramData : STD_LOGIC_VECTOR(7 DOWNTO 0);
   ramAddr : STD_LOGIC_VECTOR(6 DOWNTO 0);
-END RECORD TxSpe_Ram_REC;
+END RECORD Module_Vhdlink_vhdlModuleName_REC;
 
   .....
   
-SIGNAL txSpe_Ram : TxSpe_Ram_REC;
+SIGNAL module_Vhdlink_vhdlModuleName : Module_Vhdlink_vhdlModuleName_REC;
 ----
 
 That are combinatoric values.
@@ -1314,8 +1321,7 @@ Inside the class the constructor should be written in the following kind (exampl
 .Java: usage of given VHDL file in Java code for generation, constructor
 [source,Java]
 ----
-    @Fpga.LINK_VHDL_MODULE Ram(int time, RAM_SpiRamSel vhdlMdl, Modules modules, Ref ref, TxSpe thism) {
-      RAM_SpiRamSel vhdlMdl1 = modules.ram;
+    @Fpga.LINK_VHDL_MODULE Vhdlink_vhdlModuleName(int time, EmulationClass vhdlMdl, Modules modules, Ref ref, Module thism) {
       this.ramAddr = Fpga.getBit(ref.dcmd.wrSelectSpeSlaveToTx(), 15) ? Fpga.getBits(ref.dcmd.wrSelectSpeSlaveToTx(), 14, 8) : Fpga.getBits(thism.frameSelect.ctData,9,3);
       vhdlMdl.input.Clock = Fpga.clk;
       vhdlMdl.input.ClockEn = ref.ce.ce0();
@@ -1339,7 +1345,7 @@ to search the emulation class, and get its entity and file name of the VHDL file
 from its annotation [J]`@Fpga.VHDL_MODULE ( vhdlEntity = "<name>" )` (see above).
 That is used as type name of the `PORT MAP`.
 
-For simulation the [J]`step(...)` and [J]`update()` of the [J]`@Fpga.VHDL_MODULE public class RAM...`
+For simulation the [J]`step(...)` and [J]`update()` of the [J]`@Fpga.VHDL_MODULE public class EmulationClass...`
 is called one after another. 
 The isolation from step() and update() for a correct simulation execution is done by storing the result value
 of the VHDL module here in the [J]`ramData` internal data, 
@@ -1365,7 +1371,7 @@ txSpe_Ram.ramAddr  <= TO_STDLOGICVECTOR(data_Data.wrSelectSpeSlaveToTx(14 DOWNTO
 -- <name>: <type> 
 --   ... <name> is build from <moduleName>_<className> with annotation "@Fpga.LINK_VHDL_MODULE" 
 --   ... <type> is gotten from the Java class implementation annotation "Fpga.VHDL_MODULE ( vhdlEntity = <type> )"
-txSpe_Ram_vhdlMdl: RAM_SpiRamSel
+module_Vhdlink_vhdlModuleName: Vhdl_filename
 PORT MAP( 
   Clock =>  TO_STDULOGIC(clk) ,
   ClockEn =>  TO_STDULOGIC(rxClkSync_Q.ce0) ,
@@ -1374,13 +1380,36 @@ PORT MAP(
   Data =>  TO_STDLOGICVECTOR(data_Data.wrSelectSpeSlaveToTx(7 DOWNTO 0)) ,
   WE =>  TO_STDULOGIC(data_Data.wrSelectSpeSlaveToTx(15)) ,
   Q => txSpe_Ram.ramData  
- );  --PORT MAP RAM_SpiRamSel
+ );  --PORT MAP Vhdl_filename
 ----
 
 The comments in the VHDL file should show the coherence to the Java sources.
 The Assignments are only generated if there are intermediate variables. 
 
+The `Vhdlink_...` class should be instantiated and used for `step(...)` and `update(...)`
+in the same kind as a process class:
 
+.Java: instances for linked Vhdl module, step and update
+[source,Java]
+----
+public Vhdlink_vhdlModuleName vhdlink_vhdlModuleName = new Vhdlink_vhdlModuleName(); 
+private Vhdlink_vhdlModuleName vhdlink_vhdlModuleName_d;
+
+  ....
+public void step() { //step from the module
+  ....
+  this.vhdlink_vhdlModuleName_d = new Vhdlink_vhdlModuleName(this.vhdlink_vhdlModuleName, modules.vhdlModuleName, ....)
+....
+public void update() { //update from the module
+  ....
+  this.vhdlink_vhdlModuleName = this.vhdlink_vhdlModuleName_d;
+----
+
+The update assures as for processes that the Java simulation uses the new data in the next step only (clocked).
+
+It is obviously that the instance of the `vhdlModuleName` is associated here to the `vhdlMdl` calling argument. 
+But this is not obviously by the Java2Vhdl translation process, only for simulation.
+That's why it needs the naming convention, the organization class `Vhdlink_...` should follow the vhdl module name.  
 
 == State machines, enum
 

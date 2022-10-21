@@ -633,9 +633,9 @@ public final class VhdlExprTerm extends SrcInfo {
           this.sNameIclass = null;             // maybe null if operation of the module is called.
           this.bReferencedModule = true;
           //bRefNextUsed = true;
-        } else if(this.sRef.equals("vhdlMdl")) {                // the associated VHDL external module to a LINK_VHDL_MODULE sub class
-          this.mdlRef = this.mdlRef.idxSubModules.get(nameIclassArg);
-          this.sNameIclass = null;             // maybe null if operation of the module is called.
+        } else if(this.sRef.equals("vhdlMdl")) {           // the associated VHDL external module to a LINK_VHDL_MODULE sub class
+          this.mdlRef = this.mdlRef.idxSubModules.get(nameIclassArg.substring(8));  //without name part Vhdlink_, it is tested and asserted before.
+          this.sNameIclass = null;                         // maybe null if operation of the module is called.
           this.bReferencedModule = true;
           //bRefNextUsed = true;
         } else if(this.sRef.equals("ref")) {                      // get the referenced module, and maybe an inner sAccess

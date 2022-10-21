@@ -322,7 +322,7 @@ enumDefinition::= [|<AccessRight>] enum <$?enumTypeIdent> \{  [{<?*enumElement> 
 
 ParamNameValue::= [<$?paramName> = ] <simpleValue>.
 
-AnnotationUse::= <$\.?name> [ ( { <ParamNameValue?param> ? , } ) ]. 
+AnnotationUse::= <$\.?name> [ ( [{ <ParamNameValue?param> ? , }] ) ]. 
 
 ##NOTE: write <AccessRight> at last position of alternative because if 'package private' is set (no keyword, no content), the repetition is broken off.
 ##      it is a Java specification problem!

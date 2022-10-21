@@ -281,7 +281,7 @@ public class JavaSrc extends JavaSrc_Base {
   public static class Expression extends JavaSrc_Base.Expression_Base {
   
     
-    public static String dbgStopExprFile = "SpiMaster.java";
+    public static String dbgStopExprFile = null; //"SpiMaster.java";
     
     public static int dbgStopLine1 = 738, dbgStopLine2 = 738;
     

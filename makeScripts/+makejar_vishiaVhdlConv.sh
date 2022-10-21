@@ -9,7 +9,7 @@ echo " ... generates the $DSTNAME.jar from srcJava_$DSTNAME core sources"
 #Do not change the version on repeated build, and check the checksum and content of jar.
 #If it is equal, it is a reproduces build. The $VERSIONSTAMP is important 
 #  because it determines the timestamp and hence the checksum in the jar file. 
-export VERSIONSTAMP="2022-07-26"
+export VERSIONSTAMP="2022-10-21"
 
 ## Determine a dedicated vishiaBase-yyyy-mm-dd.jar or deactivate it to use the current vishiaBase.jar:
 export VERSION_VISHIABASE="XX2021-07-01"
@@ -37,7 +37,7 @@ export TIMEinJAR=""   ##get from $VERSIONSTAMP
 export SRCDIRNAME="vishiaJ2Vhdl"  ##must identical to the own location
 
 ## This directory contains some basic scripts. Should be exists
-export MAKEBASEDIR="java_vishiaBase/makeScripts"
+export MAKEBASEDIR="srcJava_vishiaBase/makeScripts"
 
 #The SRCZIPFILE name will be written in MD5 file also for vishiaMiniSys.
 # It should have anytime the stamp of the newest file, independing of the VERSIONSTAMP
