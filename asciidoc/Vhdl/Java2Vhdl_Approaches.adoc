@@ -1382,6 +1382,226 @@ The Assignments are only generated if there are intermediate variables.
 
 
 
+== State machines, enum
+
+State machines are familiar both in software and in hardware. 
+In software solutions often the so named "Harel-Statecharts" are used.
+(link:https://en.wikipedia.org/wiki/David_Harel[]), 
+which defines nested and parallel states with history. 
+That's a part of the "__Unified Modeling Language__" (UML):
+link:https://en.wikipedia.org/wiki/UML_state_machine[], 
+definition by omg.org: link:http://www.omg.org/spec/UML/[].
+For Software state machines often events are responsible to switch the states.
+
+But all these practical things are not substantiated in the Java core definition. 
+It is possible in Java, but with specific classes.
+
+Hardware state machines are often a little bit simpler.
+Especially there are not event driven, the system clock switches because of conditions.
+But the idea of nesting and parallel states is and should also possible and practicable.
+Also the idea of the event may be possible, presented by an additional condition (the event bit).
+This means that thinking in terms of states should not distinguish too much between software and hardware.
+
+A basis for this is the enum definition for states and the enum type for the state variable.
+Exactly this is implemented in the current version of Java2Vhdl.
+
+=== State variable with 1-of-n decoding
+
+A state variable is basically a numeric value. For 5 states you need 3 bits to code numbers between 1 to 5
+as presentation of the state. But another coding is better:
+
+Use 5 bits if you have 5 states, the state variable is 1-to-5 decoded (one bit from 5 is set).
+
+----
+00000 invalid state
+00001 state A
+00010 state B
+00100 state C
+01000 state D
+10000 state E
+----
+
+With this coding schema only one bit is need to detect a specific state, and this is a lesser effort in routing,
+for the FPGA hardware resources. 
+The number of FlipFlops in a FPGA are usual enough, 
+the scare resource is often the lines for routing and the look up tables (LUT) for combinatoric.
+
+Only the quest of the invalid state (after reset) needs testing of all 5 bits, or more for more states.
+In the current version of the Java2VHDL translator, the set of a state influences all state bits. 
+Most of them are set from 0 to 0, only the elapsed state bit is set from 1 to 0 and the new state bit is set from 0 to 1.
+Maybe the router can improve this situation by optimizing. 
+Setting all state bits clarifies a possible mistake if more as one bit is set.
+
+=== enum definition in Java
+
+Known from {cp} language, a enum is only a definition of an integer constant value by a symbol, 
+and the enum type assures only acceptance of these enum constant definitions.
+In Java the enum definition is a little bit more powerful:
+
+* Java creates an enum Object with some values as constant.
+* The enum value in an enum variable is the reference to one of these enum constant objects.
+This needs 8 byte for a pointer, in opposite to {cp} where for example 2 Bytes for an `int16_t` enum base type are sufficient.
+But Java runs only on powerful processors, not an disadvantage.
+
+The first point offers usage of some more properties of the enum constant.
+
+.Java: enum definition
+[source,Java]
+----
+  /**States for xyz*/
+  public enum MyState {
+    Undef  (0b00000, -1, '0'),
+    /**State A */
+    A  (0b00001, 0, 'A'), 
+    B  (0b00010, 1, 'B'), 
+    C  (0b00100, 2, 'C'), 
+    D  (0b01000, 3, 'D'), 
+    E  (0b10000, 4, 'E'), 
+    ;
+    public final int _val_;
+    public final char show;
+    final int bit;
+    /**Constructor for the enum value
+     * @param value The internal used Vhdl value
+     * @param bit the bit number for VHDL translation, following the value 
+     * @param show character to show the state in println
+     */
+    MyState(int value, int bit, char show) { 
+      this._val_ = value; this.bit = bit; this.show = show; 
+    }
+  }
+----
+
+This is a strikingly example. The state names A..E are of course any identifier, 
+but you have a namespace inside the enum definition (clashs are prevented, better than in {cp}).
+The fields `value` and `bit` are required. The field `show` is proper usable for output of test results,
+see some programming examples. The state `Undef` is the undefined state after reset. 
+
+=== state variable as enum
+
+The state variable in Java has this enum type. Concluding, Java assures only set with a valid state value.
+For the VHDL conversion it should be a bit vector  (not a `STD_LOGIC_VECTOR`, not supported in the current version).
+A `BIT_VECTOR` is sufficient for usage. 
+
+.Java: state variable definition inside a process class:
+[source,Java]
+----
+    @Fpga.BITVECTOR(5) final MyState state;
+----
+
+The number of bits should follow the enum definition, elsewhere mistakes in the generated VHDL code are resulting.
+
+=== query state variables
+
+The query is usal written as:
+
+.Java: state variable query:
+[source,Java]
+----
+  if( z.state == MyState.Undef ) {
+    //.....
+  else if( z.state == MyState.A ) {
+    //.....
+  else if( z.state == MyState.B && otherSignal ) {
+    //.....
+----
+
+As you see, the content of the state variable is compared to the given state constant value. 
+Usage of the identifier of the enum type definition is necessary in Java, it clarifies name clashing
+and increases obviousness and readability.
+Usage of `switch ... case` is possible and may be also recommended in Java, but it is not yet supported in the Java2Vhdl translator.  
+As given in the third query line the query of the state can be also combined with the logic relation to other signals (variables),
+which are the conditions for state usage. This is better possible in an `if (...` construct.
+
+The Java2Vhdl translator detects a definition of a state constant with a bit value >=0, 
+then only the query of the state bit is produced in VHDL. For this example the result in VHDL is:
+
+.VHDL: state variable query:
+[source,VHDL]
+----
+  IF(module_Prc.state = Module_MyState_Undef) THEN
+    --.....
+  ELSE IF ( module_Prc.state(0)='1') THEN
+    --....
+  ELSE IF ( module_Prc.otherSignal AND module_Prc.state(1))='1' THEN
+    --....    
+----
+
+The first comparison of state used the state value `0b00000` which is not marked with a valid bit, 
+hence the Java2VHDL translator generates a full comparison of the state vector with the constant value which is defined as 
+
+.VHDL: state constant definition
+[source,VHDL]
+----
+CONSTANT Module_MyState_Undef : BIT_VECTOR(4 DOWNTO 0) :=  "00000";
+----
+
+The second comparison knows from the Java enum definition, bit 0 is associated,
+and generates the simple access to this bit value. 
+The third query combines the `BIT` access to the state `BIT_VECTOR` bit with the `BIT` variable `otherSignal`
+as BIT-AND and converts outside of the paranthesis to the necessary boolean value for the `IF` query.
+
+.Java: state variable query:
+[source,Java]
+----
+  myBitVariable = (z.state == MyState.C) & otherBitVariable;
+----
+
+This is a combinatoric from a state query and a boolean, it is translated very simple to:
+
+
+.VHDL: state variable query:
+[source,VHDL]
+----
+  module_Prc.myBitVariable <= module_Prc.state(2) AND module_Prc.otherBitVariable;
+----
+
+It means it is only a BIT logical combination. 
+
+=== set state variables
+
+To switch the state only the new state should be set:
+
+.Java: state variable set:
+[source,Java]
+----
+    if(condition){
+      this.state = MyState.C;
+----
+
+This is immediately translated to
+
+.VHDL: state variable query:
+[source,VHDL]
+----
+    IF condition THEN
+      module.Prc.state <= Module_MyState_C; 
+----
+
+It means all state bits are determined. The optimizer of the FPGA routing process may detect not changed bits.
+
+
+=== Nested and parallel states
+
+As mentioned in the introduction, Harel-Statemachines have nested and/or parallel states. 
+Especially nested states helps get overview, it follows the practical requirements.
+
+In Java level for VHDL any sub state in a state should have its own state variable. 
+Entry in a nested state needs set two state variables. Query of the composite state (the outer of nesting)
+queries and set only the outer state variable, the inner state remains its value. 
+This is helpful for the entry to the "__history state__", to the given remained inner state back again.
+
+These things are all able to do on user level. A translation between UML diagrams with given Harel state charts
+to Java and then to VHDL may be nice and possible, but not presented here. See links in german:
+
+link:https://vishia.org/StMn/pdf/StatemProgr_de_2020-01-12.pdf[]
+
+link:https://vishia.org/StMn/pdf/EventQueue_de_2020-02-20.pdf[]
+
+
+ 
+  
+
 [#timeCnstrn]
 == Timing constrains for place and route
 
