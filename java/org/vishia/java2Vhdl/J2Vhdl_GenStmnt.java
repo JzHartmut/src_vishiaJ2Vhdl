@@ -128,7 +128,7 @@ public class J2Vhdl_GenStmnt {
         //the variable itself is already defined. 
         JavaSrc.Expression expr = vdef.get_Expression();
         if(expr !=null) {                        // The expression does not contain the left variable, it is the vdef
-          out.append(this.indents.substring(1, 2*indent+1)).append(vdef.get_variableName()).append(" := ");
+          out.append(this.indents.substring(0, 2*indent+1)).append(vdef.get_variableName()).append(" := ");
           genAssignment(out, expr, mdl, nameInnerClassVariable, indent, bInsideProcess);
           out.append(";");
         }
