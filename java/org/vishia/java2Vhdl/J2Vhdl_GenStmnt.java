@@ -5,7 +5,40 @@ import org.vishia.util.Debugutil;
 
 public class J2Vhdl_GenStmnt {
 
-  
+  /**Version, history and license.
+   * <ul>
+   * <li>2023-03-28 {@link #genStmnt(StringBuilder, org.vishia.java2Vhdl.parseJava.JavaSrc.Statement, J2Vhdl_ModuleInstance, String, int, boolean)}
+   *   Now a variable definition initial assignment is translated correct. 
+   * <li>2022-10-16 Hartmut created, only formal refactoring: 
+   * Now J2Vhdl_GenExpr and J2Vhdl_GenStmnt divided from GenStmntExpr
+   * With them the statement generation and expression generation is well able to distinguish,  an overdue refactoring.
+   * </ul>
+   * <br><br>
+   * <b>Copyright/Copyleft</b>:
+   * For this source the LGPL Lesser General Public License,
+   * published by the Free Software Foundation is valid.
+   * It means:
+   * <ol>
+   * <li> You can use this source without any restriction for any desired purpose.
+   * <li> You can redistribute copies of this source to everybody.
+   * <li> Every user of this source, also the user of redistribute copies
+   *    with or without payment, must accept this license for further using.
+   * <li> But the LPGL is not appropriate for a whole software product,
+   *    if this source is only a part of them. It means, the user
+   *    must publish this part of source,
+   *    but don't need to publish the whole source of the own product.
+   * <li> You can study and modify (improve) this source
+   *    for own using or for redistribution, but you have to license the
+   *    modified sources likewise under this LGPL Lesser General Public License.
+   *    You mustn't delete this Copyright/Copyleft inscription in this source file.
+   * </ol>
+   * If you are intent to use this sources without publishing its usage, you can get
+   * a second license subscribing a special contract with the author. 
+   * 
+   * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
+   */
+  public final static String sVersion = "2023-03-28"; 
+
   
   J2Vhdl_GenExpr genExpr = J2Vhdl_GenExpr.d;  //access to the singleton
   
@@ -94,10 +127,10 @@ public class J2Vhdl_GenStmnt {
       for(JavaSrc.VariableInstance vdef: stmnt.get_variableDefinition()) {
         //the variable itself is already defined. 
         JavaSrc.Expression expr = vdef.get_Expression();
-        if(expr !=null) {
+        if(expr !=null) {                        // The expression does not contain the left variable, it is the vdef
+          out.append(this.indents.substring(1, 2*indent+1)).append(vdef.get_variableName()).append(" := ");
           genAssignment(out, expr, mdl, nameInnerClassVariable, indent, bInsideProcess);
-//          out.append(this.indents.substring(0, 2*indent+1)).append(vdef.get_variableName()).append(" := ");
-//          genExpression(out, expr, false);
+          out.append(";");
         }
       }
     }

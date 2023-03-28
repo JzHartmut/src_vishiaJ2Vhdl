@@ -15,6 +15,9 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2022-08-20  {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence, boolean)}:
+   *   if an expression part is "time", it is the time argument of step, then it is a timing assignment. Ignore it.
+   *   This was only peculiar on a term which has "time_" left side, not detected but "time" in the expression.
    * <li>2022-08-20 bugfix regard unary operator for a nested expression, "NOT state == StateXY" or "NOT(a AND b)" 
    * <li>2022-10-15 chg {@link #addOperand(VhdlExprTerm, J2Vhdl_Operator, org.vishia.java2Vhdl.parseJava.JavaSrc.ExprPart, boolean, J2Vhdl_ModuleInstance, String)}:
    *   The type for state comparison is now bittype, without conversion to boolean.
@@ -89,7 +92,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2022-10-20"; 
+  public final static String sVersion = "2023-03-28"; 
 
   
   /**Type of a variable and a build expression.
@@ -770,7 +773,8 @@ public final class VhdlExprTerm extends SrcInfo {
       }
       if(this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.stateBit) {  // not a state bit in succession of the branch immediately above.
         boolean bMaskVar = varName.startsWith("m_");
-        boolean bTimeMaskVar = sNameIclass !=null && sNameIclass.endsWith("time") || varName.startsWith("time") || varName.startsWith("_time") || bMaskVar;
+        boolean bTimeMaskVar = sNameIclass !=null && (sNameIclass.endsWith("time") || sNameIclass.endsWith("time_") ) 
+                            || varName.startsWith("time_") || varName.startsWith("_time") || bMaskVar;
         if(bTimeMaskVar || bMaskVar) {
           varDescr = null;   //not necessary
 //            varDescr = this.getVariableAccess(var, mdlRef, sNameIclass);  //vhdlConv.getVariableAccess(val, mdlRef, sNameIclass);
@@ -797,8 +801,10 @@ public final class VhdlExprTerm extends SrcInfo {
             this.exprType_.etype = ExprTypeEnum.timeVar;
           } else if(bMaskVar) {
             this.exprType_.etype = ExprTypeEnum.timeVar;
+          } else if(varName.startsWith("time")) {
+            this.exprType_.etype = ExprTypeEnum.timeVar;
           } else {
-            throw new IllegalArgumentException("variable not found");
+            throw new IllegalArgumentException("variable not found: " + varName);
           }
         }
       }
@@ -960,7 +966,7 @@ public final class VhdlExprTerm extends SrcInfo {
     final String sRef;
     final String sElemJava;
     final String dbg;
-    if(nameInnerClassVariable !=null && nameInnerClassVariable.equals("time")) {
+    if(nameInnerClassVariable !=null && nameInnerClassVariable.equals("time_")) {
       return null;                                         // access to a time sub structure such as this.time.varName is not part of VHDL
     }
     name = var.get_variableName(); 

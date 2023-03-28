@@ -26,6 +26,8 @@ public class J2Vhdl_GenExpr {
   
   /**Version, history and license.
    * <ul>
+   * <li>2023-03-28 improved: {@link #assembleType(org.vishia.java2Vhdl.parseJava.JavaSrc.VariableInstance, String)} 
+   *   Now recognize all types also in all variables, especially correct char or @Fpga.STD_LOGIC boolean as STD_LOGIC.  
    * <li>2022-08-20 {@link #genExpression(Appendable, org.vishia.java2Vhdl.parseJava.JavaSrc.Expression, boolean, boolean, J2Vhdl_ModuleInstance, String, CharSequence, CharSequence, org.vishia.java2Vhdl.VhdlExprTerm.ExprType)}:
    *   now a part "@ <unaryOp>@" is regarded. apply unary operator to the current _leftExpression 
    * <li>2022-08-19 improve debug possibilities: {@value #dbgStopExprFile} etc. 
@@ -963,30 +965,32 @@ public class J2Vhdl_GenExpr {
         Debugutil.stop();
         return null;
       }
-      if(varDescr.type.etype == VhdlExprTerm.ExprTypeEnum.bittype) { //typeName.equals("boolean")) {
-        return "BIT";
-      } else if(varDescr.type.etype == VhdlExprTerm.ExprTypeEnum.bitVtype) { //typeName.equals("boolean")) {
-          return "BIT_VECTOR(" + (varDescr.nrBits-1) + " DOWNTO 0)";
-      } else if(varDescr.type.etype == VhdlExprTerm.ExprTypeEnum.stdVtype) { //typeName.equals("boolean")) {
-        return "STD_LOGIC_VECTOR(" + (varDescr.nrBits-1) + " DOWNTO 0)";
-      } else { // if(typeName.equals("int")) {
-        //JavaSrc.VariableInstance maskVar = variables.get("m_"+ varName);
-        //String sBitRange = varDescr.downto;
-  //      String varAnnotation = null; //var.get_Annotation();
-  //      if(varAnnotation !=null && varAnnotation.startsWith("BITRANGE")) {
-  //        int posVal = varAnnotation.indexOf('(') +1;
-  //        int posValEnd = varAnnotation.indexOf(')');   //is contained, elsewhere Java compiling error.
-  //        sBitRange = varAnnotation.substring(posVal, posValEnd);
-  //      } else {
-  //        sBitRange = "31 DOWNTO 0";
-  //      }
-        Debugutil.stop();
-        //int mask = DataAccess.access(varName, var, false, false, false, null)
-        return "STD_LOGIC_VECTOR( 31 DOWNTO 0 )";
-      }
-  //    else {
-  //      return "??unknownType??";
-  //    }
+      return varDescr.getVhdlType();
+      //Note: following it was the older code, obsolete, remove it. 2023-03-28
+//      if(varDescr.type.etype == VhdlExprTerm.ExprTypeEnum.bittype) { //typeName.equals("boolean")) {
+//        return "BIT";
+//      } else if(varDescr.type.etype == VhdlExprTerm.ExprTypeEnum.bitVtype) { //typeName.equals("boolean")) {
+//          return "BIT_VECTOR(" + (varDescr.nrBits-1) + " DOWNTO 0)";
+//      } else if(varDescr.type.etype == VhdlExprTerm.ExprTypeEnum.stdVtype) { //typeName.equals("boolean")) {
+//        return "STD_LOGIC_VECTOR(" + (varDescr.nrBits-1) + " DOWNTO 0)";
+//      } else { // if(typeName.equals("int")) {
+//        //JavaSrc.VariableInstance maskVar = variables.get("m_"+ varName);
+//        //String sBitRange = varDescr.downto;
+//  //      String varAnnotation = null; //var.get_Annotation();
+//  //      if(varAnnotation !=null && varAnnotation.startsWith("BITRANGE")) {
+//  //        int posVal = varAnnotation.indexOf('(') +1;
+//  //        int posValEnd = varAnnotation.indexOf(')');   //is contained, elsewhere Java compiling error.
+//  //        sBitRange = varAnnotation.substring(posVal, posValEnd);
+//  //      } else {
+//  //        sBitRange = "31 DOWNTO 0";
+//  //      }
+//        Debugutil.stop();
+//        //int mask = DataAccess.access(varName, var, false, false, false, null)
+//        return "STD_LOGIC_VECTOR( 31 DOWNTO 0 )";
+//      }
+//  //    else {
+//  //      return "??unknownType??";
+//  //    }
     }
   
 

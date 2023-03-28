@@ -34,6 +34,7 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2023-03-28 {@link #genRecords(Appendable)} info in VHDL on non found VHDL type. 
    * <li>2022-10-20 adapt change AnnotationUse in class syntax with usage for linked VHDL modules. 
    * <li>2022-08-22 in {@link #gatherAllVariables()}: also in the top level process classes ( {@link Fpga#} annotation VHDL_PROCESS) 
    *   is possible now, gather the variables also in the top level. 
@@ -332,12 +333,12 @@ public class Java2Vhdl {
     this.vhdlConst = new OutTextPreparer("vhdlConst", null, "name, type, value", tplTexts.get("vhdlConst"));
     this.vhdlCmpnDef = new OutTextPreparer("vhdlCmpnDef", null, "name, vars", tplTexts.get("vhdlCmpnDef"));
     this.vhdlCmpnCall = new OutTextPreparer("vhdlCmpnCall", null, "name, typeVhdl, preAssignments, vars", tplTexts.get("vhdlCmpnCall"));
-    parseAll();                                                              // parse top level and depending classes. 
+    parseAll();                                  // parse top level and depending classes. 
     evaluateModuleTypes();
     createModuleInstances();
     prepareModuleInstances();
     evaluateCtor();
-    gatherAllVariables();
+    gatherAllVariables();                        // fill the list fdata.idxVars
     evaluateInterfacesInModules();
     
     //=======================================================================================================
@@ -1068,7 +1069,7 @@ public class Java2Vhdl {
     Iterable<JavaSrc.MethodDefinition> iter = zclassC.get_methodDefinition();
     if(iter !=null) for(JavaSrc.MethodDefinition oper: iter ) {
       String nameOper = oper.get_name();
-      if(! nameOper.equals("time")) {                      // ignore operation time(), it is not for VHDL output.
+      if(! nameOper.equals("time_")) {                      // ignore operation time(), it is not for VHDL output.
         if(nameOper.equals("ct"))
           Debugutil.stop();
         JavaSrc.ModifierMethod modif = oper.get_ModifierMethod();
@@ -1297,8 +1298,8 @@ public class Java2Vhdl {
     this.vhdlHead.exec(wOut, args);
     String sep = "";
     for(Map.Entry<String, J2Vhdl_Variable> evar: this.fdata.idxVars.entrySet()) {
-      String varName = evar.getKey();
-      String portKind = null;
+      String varName = evar.getKey();            // It checks all variable for the FPGA.
+      String portKind = null;                    // variable containing .ipput. or .output. builds ports.
       String sVhdlName = null;
       
       if(varName.contains(".input.")) {                    // Module.input.PORTNAME
@@ -1377,10 +1378,14 @@ public class Java2Vhdl {
             wOut.append("\nTYPE ").append(nameRecord).append("_REC IS RECORD");
             for(JavaSrc.VariableInstance var:iClassC.get_variableDefinition()) {
               String varName = var.get_variableName();
-              if( !varName.equals("_time_") && !varName.startsWith("m_")) {
+//              if(varName.equals("olg1"))
+//                Debugutil.stop();
+              if( !varName.equals("_time_") && !varName.startsWith("m_") && !varName.startsWith("time_")) {
                 String sVhdlType = this.genExpr.assembleType(var, nameRecord);
                 if(sVhdlType !=null) {
                   wOut.append("\n  ").append(varName).append(" : ").append(sVhdlType).append(";");
+                } else {
+                  wOut.append("\n  ").append(varName).append(" : BIT;   -- ERROR type not evaluatable");
                 }
               }
             }
@@ -1476,8 +1481,8 @@ public class Java2Vhdl {
               String ctorName = ctor.get_constructor();
               if(ctorName.equals("Qrx"))
                 Debugutil.stop();
-              if(namePrc.equals("clr_Q"))
-                Debugutil.stop();
+//              if(namePrc.equals("mdl1_Val"))
+//                Debugutil.stop();
               wOut.append("\n\n\n").append(namePrc).append("_PRC: PROCESS ( clk )");
               //String nameIclass = sModule  + "." + Character.toLowerCase(nameiClass.charAt(0)) + nameiClass.substring(1);
               String nameIclass = Character.toLowerCase(nameiClass.charAt(0)) + nameiClass.substring(1);
