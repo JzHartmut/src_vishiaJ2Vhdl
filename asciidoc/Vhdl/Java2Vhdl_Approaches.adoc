@@ -1,4 +1,5 @@
-= Java logic description - Approaches ( to VHDL)
+= Java logic description and translate to VHDL - Approaches
+:title-page:
 :toc:
 :toclevels: 4
 :sectnums:
@@ -9,6 +10,9 @@
 :cp: C/++
 :wildcard: *
 :stylesheet: my.css
+:author: Dr. Hartmut Schorrig, www.vishia.org v1.1, 2023-03-16
+//
+
 
 Version: 2022-06-04
 
@@ -34,12 +38,17 @@ Comparing both descriptions you can also see advantages in the documentation of 
 
 This is a preliminary information. The tool Java2Vhdl translator is in progress.
 
+<<<
+
+
+[#Motivation]
 == Motivation
 
 VHDL was originally created in the 1980^th^ for timing simulations of the behavior of ASICs
 See link:https://en.wikipedia.org/wiki/VHDL[]:
 __In 1983, VHDL was originally developed at the behest of the U.S. Department of Defense 
-in order to document the behavior of the ASICs that supplier companies were including in equipment.__ ... (requested on 2022-05-25)
+in order to document the behavior of the ASICs that supplier companies were including in equipment.__ 
+... (requested on 2022-05-25)
 
 As a second approach it was later used to determine the content of FPGAs (input for routing).
 
@@ -77,25 +86,15 @@ That is all possible of course, but firstly the synchronous part of the design
 can be planned and tested completely only using a Java development environment (such as Eclipse). 
 This supports also elaborately usage of test possibilities (input signal preparation, evaluation, test control etc.).
 
+<<<
 
-== Why Java and not another language
+[#hwLogicJava]
+== Writing hardware logic in Java, principles
 
 Java is one of the most known and used programming languages. 
 In opposite to for example {cpp} Java is a save language. 
 The commonly small programming mistakes by the users do not cause a complicated behavior,
 they are obviously. 
-
-Java knows the `final` keyword, which is proper to formulate assignments in a unique kind. 
-That is one of the benefits of the language itself. 
-The `const` keyword in C/{cpp} cannot fulfill the same.
-
-A second benefit is the possibility of formulate annotations, which are recognized also in the run time environment, 
-not only for translation. 
-
-See the examples and patterns. 
-
-
-== Writing hardware logic in Java, principles
 
 There are two different approaches for Fpga content:
 
@@ -112,23 +111,38 @@ or programming FPGA in {cpp} (known since ~ 2005) which fulfill this approaches.
 This work is related to pure hardware logic.
 
 Writing hardware logic in Java requires knowledge about hardware in FPGA. 
-On the first hand should both familiar with the internal structures of logic blocks in your FPGA. 
-Also which such thinks as floorplanner, physical view, timing reports.
+On the first hand one should familiar with the internal structures of logic blocks in your FPGA 
+and also with such things as floorplanner, physical view, timing reports.
 On the other hand you should familiar with VHDL as hardware description. 
 The VHDL is used as bridge between the Java hardware sources and the place&route tools of the FPGA. 
 
-The benefit of writing hardware logic in Java is: Also with a simple tool chain for VHDL and FPGA
-you can do elaborately tests. The modularity is better supported. 
-Java has a proper software technology (ObjectOrientation, is used also for hardware). 
-Java is often proper known from a large spread of persons. The tool support is well.
+The benefit of writing hardware logic in Java is: You can organize elaborately functional tests.
+If your logic is clocked and all time constrains are met, the behavior in the hardware is the same
+as the functional behavior in Java. And the functional behavior is the complex one thing,
+not the details of behavior of the implemented design in the FPGA also only simulated.
+It is sufficient to simulate the functionality in Java, check matching all timing constrains,
+and the test with the real hardware FPGA. 
+
+A second benefit is: In Java a better module and sub module organization is possible,
+including the advantages of Object Oriented assembling of the modules als using the interface concept.
+The last one may be importance, if you want to vary your solution for different test approaches,
+or also for different implementations with the same sources. Last not least the amount of different sources
+for variants are reduced, reuse is more supported as with the module concept of VHDL.
+
+And the last benefit: Java is often proper known from a large spread of persons. The tool support is well.
 That are detail advantages.
 
+<<<
 
 [#BasicFuncSim]
 === Principle of functional simulation of synchronous state machines
 
 Typically, the bulk of the content of an FPGA should be a synchronous design. 
 It means, all input signals are gathered by only one clock, and then furthermore used only clock-synchronous. 
+
+Secondary hint: Using several clocks for a FPGA design is often not the best choice. 
+If you have different time ranges for signals, it is better to use one fast clock 
+and several '__clock enable__' strategies. This is especially supported here.
 
 All new states are based on the given states with logical relations, 
 which are then adopted as current states with the clock edge.   
@@ -138,75 +152,91 @@ image:../../img/Fpga/SimpleSynchrLogic.png[Simple synchron logic, float="right"]
 Q~n+1~ = fn( Q~n~)
 
 Whereby the input signals are also part of the Q (means all FlipFlop states). 
-The fn (function) is a logical relation.
+The fn (function) is a only logical relation.
 
-To do the same in any sequential programming language, firstly all new states should be calculated from the current states
+To do the same in any sequential programming language, firstly all new states 
+should be calculated newly from the current states
 **without using the new states itself for calcualtion**.
 That should be done for the whole functionality (not only module per module), 
 because elsewhere new states from already calculated modules may be used by mistake.
 This new states are the representation of the signal levels on the D inputs of the FlipFlops.
+For that, [J]`step()` operations are written in Java for each module and for the whole content.
 
-Then the clock edge comes in hardware, that is in software the copy process to declare the new calculated states as current ones.
-This should be done without logic combinations, only the values are copied.
+Then the clock edge comes in hardware, in Java software it is the copy process 
+to declare the new calculated states as current ones.
 
 After that, output values can be calculated from the new current states. 
-Alternatively the output values can also be calculated as the D inputs firstly as new output values, and then copied to the current state of outputs.
-That are immediately clocked outputs. 
+Alternatively the output values can also be calculated as the D inputs firstly as new output values, 
+and then copied to the current state of outputs, they are clocked outputs. 
+For that, `update()` operations are written in Java for each module and for all.
 
-For that some `step()` operations are used in the Java sources, and after them `update()`.
-
-.Java: Principle for step and update with new instances
+.Java: Principle for step and update for some modules
 [source,Java]
 ----
-  mdl1.step();
-  mdl2.step();
+  mdl1.step(time);
+  mdl2.step(time);
   mdl1.update();
   mdl2.update();
 ----
 
-Using Java, some advantages can be uses:
+Step and update operations looks like:
 
-* The `final` keyword in Java allows to control settings of variables only one time in a unique kind.
-Any variable is exactly defined in any control branch. 
-This property of Java can be used to write a clean code.
-
-But the `final` approach regarding the old (current) states and new states can be only used in the constructors of a class (construction of the instance).
-Applicated to the above shown `step(); update()` approach it means:
-
-* The `step()` create a new instance invoking the constructor and using the `final` approach for all instance variables. The new instance is not used for other `step()`.
-* The `update()` copies the new calculated values in the new instances to the current one. 
-In Java all variable to instances are references. Hence it means, the new instances are created with `new` in the heap, 
-and referenced with an own reference,
-and the update copies only the references.
-
-.Java: Principle for step and update with new instances
+.Java: One simple step operation in a module
 [source,Java]
 ----
- Type state = new Type();    //initial settings (reset state)
- Type state_d;               //yet null
- 
- ... in a loop:
- state_d = new Type(state, ... more other states );
- ... done firstly for all modules, the step() operations
- state = state_d;            // establish the new states as current
- ... done for all modules, the update() operations.
+  public void step ( int time ) {
+    this.d_record = new Record(time, this.record, inputs);
+  }
 ----
 
-This is the schema to work in Java for hardware simulation, 
-and also the writing style for translation to VHDL. 
+It means it creates a new instance and calls the constructor using the previos states and inputs. 
+The new instance is referenced first in the variable which presents the '__D inputs of Flipflops__'.
+
+.Java: One simple update operation in a module
+[source,Java]
+----
+  public void update ( ) {
+    this.record = this.d_record;
+  }
+----
+
+Now all states are available for the next [J]`step()` and for outputs.
+
+As you see in mnemonic, a module contains some `RECORD` in VHDL. 
+The constructor is translated to a VHDL-`PROCESS`.
+
+Inside the inner class for a 'RECORD' it is recommended to declare all variables as [J]`final`.
+So it cannot be forgotten to set all, and it is clarified that all `RECORD` variables are set unique.
+The template for a constructor looks like:
+
+.Java: One simple constructor for a VHDL-PROCESS
+[source,Java]
+----
+  public void RecordType ( int time, RecordType z, RefType inputs ) {
+    if(inputs.module.ce) {
+      this.varA = inputs.input && inputs.otherModule.state;
+    } else {
+      this.varA = Z.varA;
+    } 
+  }
+----
+
+The [J]`RecordType` contains here only a variable [J]`final boolean varA;`. 
+It is set as combinatoric if a '__clock Enable__' comes from another module (for this example)
+and it is hold (not changed) if [J]`...ce` is false. 
+The [J]`...state` from the other module is of course the state of the last step after update.
+The [J]`z` represents the own state of the last step for the whole `RECORD` of that `PROCESS`. 
 
 
-
-
+[#TimingDQ]
 === Timing relations
 
-The time to build the logical output from given inputs in the combinatoric logic and lines in the FPGA 
+The time to build the combinatoric for the D-inputs of the flipflops in the FPGA 
 should be lesser than the time between the clock edges.
 Then the logical functionality is also the real functionality. 
 
 If delays are longer, the behavior is undefined. 
 That is not admissible. It is controlled by the timing constraints. 
-
 
 But not all paths should consider the minimal time between the clock edges. 
 For example you can have a fast clock signal of 200 MHz (5 ns). Some paths should switch in this speed.
@@ -219,7 +249,7 @@ There is a better solution.
 image:../../img/Fpga/CESynchrLogic.png[synchron logic with CE, float="right"]
 
 Usual the FlipFlops in the Logic Block of a FPGA have a CE input. It is __Clock Enable__. 
-If this in input is 0, then the signal on the D input has no effect.
+If this input is 0, then the signal on the D input has no effect.
 The FF does not change its state. 
 It means, you can free a FF for switching with a longer period though the clock frequency is high.
 Only the CE signal should be provided in the required speed for the clock period. 
@@ -412,7 +442,9 @@ It should be possible to check such constructs statically on Java level, yet not
 The check should test whether at least one signal is in AND constellation for the whole condition, 
 and this signal should have the less constrain for delay.
 
+<<<
 
+[#types]
 === Data types in Java for Fpga design in VHDL
 
 * VHDL distinguishes between the `BIT` type which has two states '1' and '0' (similar as boolean in Java)
@@ -452,6 +484,7 @@ distinguished only by the annotation `@Fpga.BITVECTOR` or `@Fpga.STDVECTOR`
 The types `short` and `int` for 16 and 32 bit bit width without additional annotations should be used
 for 16- and 32 bit with algorithm (`long` also for 64 bit). 
 
+<<<
 
 [#boolIf]
 === boolean expression and SIGNAL types with view to VHDL
@@ -496,12 +529,13 @@ Hence it is a little bit complicated for the code generation.
 
 === Use cases of `STD_LOGIC` definitions
 
-The `STD_LOGIC` was introduced in VHDL firstly to support simulation with the values 'U', 'X' etc. 
-That is unrelated for the Java2Vhdl, because simulation is done in pure VHDL. 
+The `STD_LOGIC` was introduced in VHDL firstly to support timing simulation with the values 'U', 'X' etc. 
+That is unrelated for the Java2Vhdl, because in Java only the functional simulation is done 
+which does not need 'U' and 'X', a maybe timing simulation is done only in pure VHDL with the specific tools. 
 But it may be important: If Simulation should be done with VHDL then all SIGNALs should be defined as `STD_LOGIC` and not as `BIT`.
 
-Secondly, also important for Java2Vhdl, the Tristate and a wired or or wired and (pullup, pulldown lines) in the FPGA hardware
-can only defined with `STD_LOGIC`. 
+Secondly, also important for Java2Vhdl, the Tristate and a wired or or wired and (pullup, pulldown lines) 
+in the FPGA hardware can only defined with `STD_LOGIC`. 
 For that the type 
 
  @Fpga.STDLOGIC char mySignal;
@@ -516,6 +550,8 @@ The other possibility is to define
 In this case this variable is translated to `STD_LOGIC`, but only the two states '1' and '0' are supported. 
  
 
+
+<<<
 
 [#modulesOO]
 == Modularity, with Object Oriented Approach
@@ -596,6 +632,8 @@ to execute module-related (unit) tests.
 The test can be done in a reduced real desing in an FPGA, and also on software level. 
 Exactly this topic is realized in the Java2Vhdl translator. See chapter <<#ifc>>.  
 
+<<<
+
 [#VHDLmodules]
 === Modularity in classic VHDL
 
@@ -622,6 +660,9 @@ between the modules.
 
 For hardware description in Java a similar approach is possible using an `In` and `Out` inner class for the input and output signals. 
 This is necessary if one module should translated as one module to VHDL. 
+
+
+<<<
 
 [#aggr]
 === More possibilities with Java2VHDL: References (aggregations) in Object Orientation kind
@@ -756,6 +797,8 @@ Test and translation of this stuff may be also possible, but a non necessary eff
 
 So the Object orientated writing style in Java is translated 
 to a flattened immediately access to the correct SIGNAL (usual a Flipflop, a register etc.). 
+
+<<<
 
 [#ifc]
 === Interface technology in Java for VHDL
@@ -1173,6 +1216,7 @@ can contain more as the simple access to the variable, for example log informati
 That is all possible on Java level, not translated to VHDL. 
 For VHDL anytime the simple access to the record signal with the same name as the access operation is translated.
 
+<<<
  
 == Including existing VHDL files
 
@@ -1411,6 +1455,9 @@ It is obviously that the instance of the `vhdlModuleName` is associated here to 
 But this is not obviously by the Java2Vhdl translation process, only for simulation.
 That's why it needs the naming convention, the organization class `Vhdlink_...` should follow the vhdl module name.  
 
+
+<<<
+
 == State machines, enum
 
 State machines are familiar both in software and in hardware. 
@@ -1629,7 +1676,7 @@ link:https://vishia.org/StMn/pdf/EventQueue_de_2020-02-20.pdf[]
 
 
  
-  
+<<<
 
 [#timeCnstrn]
 == Timing constrains for place and route
@@ -1707,8 +1754,10 @@ In the version 2022-05 the time constrains are not yet automatically generated, 
 But the constrains are used for simulation, manuall written than for the place and route. 
 
 
+<<<
+
 [#test]
-== Test
+== Test in Java
 
 The Test of the logic is a very important part. 
 
@@ -1889,6 +1938,8 @@ link:../../../StimuliSel/html/StimuliSel.html[]
 This tool is not used yet for the FPGA test, but it is possible. It is used yet for Simulink tests, 
 for algorithm tests in {cp}, see link:../../../emc/html/TestOrg/testStrategie_en.html#testStrategies[] and more.
 
+
+<<<
 
 [#wstyle]
 == Writing style of logic - data assignment versus situation thinking
@@ -2186,18 +2237,6 @@ The executed statements are not executed, instead they produce VHDL code.
 This is another approach, currently not supported by the Java2VHDL concept, maybe done in future.   
 
 
-[#lit]
-== Literature, links
-
-
-
-
-* link:https://www.elektronikpraxis.vogel.de/fpgas-mit-cc-programmieren-herausforderungen-bei-hls-design-flows-a-826858/[] +
-This is a german article, describing the problems of using {cpp} for the adequate approach. 
-Tools using {cpp} as description language for hardware to VHDL are familiar since ~2005.
-
-* link:http://synthesijer.sourceforge.net/[] +
-This tool seems to have a similar approach, but it is not tested by me yet. (Too less approach-explaining documentation.)
 
 
 

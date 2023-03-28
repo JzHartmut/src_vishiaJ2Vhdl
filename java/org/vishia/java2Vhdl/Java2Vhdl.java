@@ -209,7 +209,7 @@ public class Java2Vhdl {
     }
 
     @Override
-    public boolean testArgs(Appendable msg) throws IOException {
+    public boolean testConsistence(Appendable msg) throws IOException {
       boolean bOk = true;
       if(this.fOutVhdl == null) { msg.append("-o:out.vhd obligate\n"); bOk = false; }
 //      if(this.fInVhdl == null) { msg.append("-i:out.vhd obligate\n"); bOk = false; }
@@ -235,7 +235,7 @@ public class Java2Vhdl {
         System.exit(1);                // no arguments, help is shown.
       }
       if(  false == args.parseArgs(cmdArgs, System.err)
-        || false == args.testArgs(System.err)
+        || false == args.testConsistence(System.err)
         ) { 
         System.exit(2);                // argument error
       }
@@ -407,20 +407,18 @@ public class Java2Vhdl {
     wOut.append(out);
     
     out = new StringBuilder(2400);
+    out.append("\n--Assignments from all input() operations to set ..In data of modules\n");
+    genInputOutputAssignments(out, "input");
+    wOut.append(out);
+    
+    out = new StringBuilder(2400);
     genProcesses(out);
     wOut.append(out);
     
     out = new StringBuilder(2400);
-    genAssignments(out);
+    out.append("\n--Assignments from all output() operations to set Out data of modules and set FPGA out pins\n");
+    genInputOutputAssignments(out, "output");
     wOut.append(out);
-    
-    
-    
-    
-    out = new StringBuilder(2400);                         // generate output assignments in update() operation.
-    genOutput(out);
-    wOut.append(out);
-    
     
     
     wOut.flush();
@@ -1087,6 +1085,7 @@ public class Java2Vhdl {
         if( a_Override !=null /*&& sAnnotation.startsWith("@Override") */  
             && !name.equals("step")                          // but not from the FpgaModule_ifc
             && !name.equals("update") 
+            && !name.equals("reset") 
           || sAnnot !=null 
             && ( sAnnot.equals("Fpga.GetterVhdl")
               || (bOnlySim = sAnnot.equals("Fpga.OnlySim"))
@@ -1629,9 +1628,10 @@ public class Java2Vhdl {
   
   /**Gen all processes for VHDL from all parsed sources.
    * @param wOut to write
+   * @param sOpName it is either "input" or "output" as name of the operation in top level or in a module.
    * @throws Exception 
    */
-  void genAssignments(StringBuilder wOut) throws Exception {
+  void genInputOutputAssignments(StringBuilder wOut, String sOpName) throws Exception {
     for(Map.Entry<String, J2Vhdl_ModuleInstance> esrc: this.fdata.idxModules.entrySet()) {          // all sources, instances 
       J2Vhdl_ModuleInstance mdl = esrc.getValue();
       J2Vhdl_ModuleType mdlt = mdl.type;
@@ -1641,7 +1641,7 @@ public class Java2Vhdl {
       Iterable<JavaSrc.MethodDefinition> ioper = theClassC.get_methodDefinition(); 
       if(ioper !=null) for(JavaSrc.MethodDefinition oper : ioper) { // get inner class of public module class  
         String nameOper = oper.get_name();
-        if(nameOper.equals("prepare") || nameOper.equals("output")) {            // it is an inner class for a VHDL RECORD and PROCESS
+        if(nameOper.equals(sOpName)) {            // it is an inner class for a VHDL RECORD and PROCESS
           Iterable<JavaSrc.Statement> istmnt = oper.get_methodbody().get_statement();
           if(istmnt !=null) for(JavaSrc.Statement stmnt : istmnt) {
             boolean dbgStop = false;
@@ -1652,7 +1652,7 @@ public class Java2Vhdl {
                 Debugutil.stop();
                 dbgStop = true;
             } }
-            if(stmnt.isAssignExpr()) {                     // especially not step() and update(), or test operations. 
+            if(stmnt.isAssignExpr()) {                      // especially not step() and update(), or test operations. 
               //next line is faulty if a Process is created on top level, test with null is proper.
               //commented: this.vhdlConv.genStmnt(wOut, stmnt, mdl, mdlt.nameType, 0, false);
               this.genStmnt.genStmnt(wOut, stmnt, mdl, null, 0, false);
@@ -1665,31 +1665,6 @@ public class Java2Vhdl {
     }
   }
   
-  
-  /**This is only for the top instance. The update() copies values to the output.
-   * @param wOut
-   * @throws Exception
-   */
-  void genOutput(StringBuilder wOut) throws Exception {
-    for(Map.Entry<String, J2Vhdl_ModuleType> esrc:  this.fdata.idxModuleTypes.entrySet()) {
-      J2Vhdl_ModuleType src = esrc.getValue();
-      if(src.isTopLevel()) {                                 // All toplevel variable
-        J2Vhdl_ModuleInstance topInstance = this.fdata.topInstance;
-        this.genExpr.setInnerClass(src.nameType, topInstance.nameInstance);
-        JavaSrc.ClassDefinition theclass = src.moduleClass;
-        JavaSrc.ClassContent theClassC = theclass.get_classContent();
-        if(theClassC.getSize_methodDefinition() >0) //...for
-        for(JavaSrc.MethodDefinition oper: theClassC.get_methodDefinition()) {
-          if(oper.get_name().equals("update")) {
-            for(JavaSrc.Statement stmnt : oper.get_methodbody().get_statement()) {
-              this.genStmnt.genStmnt(wOut, stmnt, topInstance, src.nameType, 0, false);
-            }
-          }
-        }
-      }
-    }
-  }
-
   
   void reportContentOfAll(Appendable out) throws IOException {
     StringFormatter sf = new StringFormatter(out, false, "\n", 100);
