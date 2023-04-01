@@ -26,6 +26,7 @@ public class J2Vhdl_GenExpr {
   
   /**Version, history and license.
    * <ul>
+   * <li>2023-03-30 new: {@link #concatBits} as improvement of the now deprecated {@link #concatbits}. 
    * <li>2023-03-28 improved: {@link #assembleType(org.vishia.java2Vhdl.parseJava.JavaSrc.VariableInstance, String)} 
    *   Now recognize all types also in all variables, especially correct char or @Fpga.STD_LOGIC boolean as STD_LOGIC.  
    * <li>2022-08-20 {@link #genExpression(Appendable, org.vishia.java2Vhdl.parseJava.JavaSrc.Expression, boolean, boolean, J2Vhdl_ModuleInstance, String, CharSequence, CharSequence, org.vishia.java2Vhdl.VhdlExprTerm.ExprType)}:
@@ -88,9 +89,9 @@ public class J2Vhdl_GenExpr {
    * See search-hit ::: dbgStop ::: to set a breakpoint for specific positions of translation code.
    * 
    */
-  public static String dbgStopExprFile = null; //"BlinkingLed_Fpga.java"; //"SpiMaster.java";
+  public static String dbgStopExprFile = null; //"ModuleXY"; //"BlinkingLed_Fpga.java"; //"SpiMaster.java";
   
-  public static int dbgStopLine1 = 58, dbgStopLine2 = 58;
+  public static int dbgStopLine1 = 144, dbgStopLine2 = 147;
   
   /**It is important to see which line/column was hit on {@link #dbgStopLine1} ..2 range */
   int[] dbgRdLineColumn = new int[2];
@@ -123,7 +124,7 @@ public class J2Vhdl_GenExpr {
      * @return The variable associated to the operation with the type. But it is not used yet. 
      * @throws Exception
      */
-    J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception;
+    J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, int nArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception;
   }
   
   
@@ -253,9 +254,9 @@ public class J2Vhdl_GenExpr {
     VhdlExprTerm _exprLeft = null;                          // left side expression segment from stack popped.
     try {
       boolean dbgStop = false;
-      if(this.dbgStopExprFile !=null) { 
+      if(J2Vhdl_GenExpr.dbgStopExprFile !=null) { 
         String file = exprRpn.getSrcInfo(this.dbgRdLineColumn);  // TxSpe BlinkingLedCt ClockDivider BlinkingLed_Fpga
-        if(file.contains(this.dbgStopExprFile) && this.dbgRdLineColumn[0] >= this.dbgStopLine1 && this.dbgRdLineColumn[0] <= this.dbgStopLine2) {
+        if(file.contains(J2Vhdl_GenExpr.dbgStopExprFile) && this.dbgRdLineColumn[0] >= J2Vhdl_GenExpr.dbgStopLine1 && this.dbgRdLineColumn[0] <= J2Vhdl_GenExpr.dbgStopLine2) {
           Debugutil.stop();
           dbgStop = true;
       } }
@@ -659,7 +660,7 @@ public class J2Vhdl_GenExpr {
   
   
   GenOperation getBitsShR = new GenOperation() {
-    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
+    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, int nArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       final JavaSrc.Expression exprLeftBit = iArgs.next();
       exprDst.b.append("(");
       genExpression(exprDst.b, exprLeftBit, false, false, mdl, nameInnerClassVariable, null, null, null);
@@ -681,7 +682,7 @@ public class J2Vhdl_GenExpr {
   
   
   GenOperation getBits = new GenOperation() {
-    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
+    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, int nArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       final JavaSrc.Expression exprSrc = iArgs.next(); // it has 2 arguments, get first
       VhdlExprTerm srcTerm = genExpression(null, exprSrc, false, false, mdl, nameInnerClassVariable, "", null, null);
 //      assert(exprSrc.getSize_ExprPart() ==1);
@@ -693,36 +694,107 @@ public class J2Vhdl_GenExpr {
         vhdlError("getbits(ix, ix) needs two simple values as ix", exprSrc);
       }
       if(exprDst.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef) { exprDst.exprType_.set(srcTerm.exprType_); }
-      exprDst.b.append(srcTerm.b).append("(").append(Integer.toString(exprIndex1.get_intNumber()))
-         .append(" DOWNTO ").append(Integer.toString(exprIndex2.get_intNumber())).append(")");
+      int bitHigh = exprIndex1.get_intNumber();
+      int bitLow = exprIndex2.get_intNumber();
+      exprDst.b.append(srcTerm.b).append("(").append(Integer.toString(bitHigh))
+         .append(" DOWNTO ").append(Integer.toString(bitLow)).append(")");
+      exprDst.exprType_.nrofElements = bitHigh +1 - bitLow;
       return null;
     } };  
   
   
-  GenOperation concatbits = new GenOperation() {
-    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
-      //StringBuilder arg1 = new StringBuilder(20);
-      final JavaSrc.Expression exprLeft = iArgs.next(); // it has 2 arguments, get first
-      final JavaSrc.Expression exprNrBits = iArgs.next(); // it has 2 arguments, get first
-      final JavaSrc.Expression exprRight = iArgs.next(); // it has 2 arguments, get first
-      if(exprLeft ==null || exprRight ==null) {
-        vhdlError("concatbits(left, bits, right) needs two expressions", exprLeft);
-      }
-      VhdlExprTerm exprLeftPart = genExpression(exprDst.b, exprLeft, false, false, mdl, nameInnerClassVariable, null, null, null);
-      exprDst.b.append(" & ");
-      VhdlExprTerm exprRightPart = genExpression(exprDst.b, exprRight, false, false, mdl, nameInnerClassVariable, null, null, null);
-      if(  exprLeftPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype || exprLeftPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype
-        || exprRightPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype || exprRightPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype) {
-        exprDst.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitVtype;  // maybe bitStdVconst for one of left or right, hence test all
-      } else {
-        exprDst.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stdVtype;
-      }
-      return null;  //TODO exprLeft.
-  } };  
-  
-  
+    @Deprecated GenOperation concatbits = new GenOperation() {
+      @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, int nArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
+        //StringBuilder arg1 = new StringBuilder(20);
+        final JavaSrc.Expression exprLeft = iArgs.next(); // it has 2 arguments, get first
+        final JavaSrc.Expression exprNrBits = iArgs.next(); // it has 2 arguments, get first
+        final JavaSrc.Expression exprRight = iArgs.next(); // it has 2 arguments, get first
+        if(exprLeft ==null || exprRight ==null) {
+          vhdlError("concatbits(left, bits, right) needs two expressions", exprLeft);
+        }
+        VhdlExprTerm exprLeftPart = genExpression(exprDst.b, exprLeft, false, false, mdl, nameInnerClassVariable, null, null, null);
+        exprDst.b.append(" & ");
+        VhdlExprTerm exprRightPart = genExpression(exprDst.b, exprRight, false, false, mdl, nameInnerClassVariable, null, null, null);
+        if(  exprLeftPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype || exprLeftPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype
+          || exprRightPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitVtype || exprRightPart.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bittype) {
+          exprDst.exprType_.etype = VhdlExprTerm.ExprTypeEnum.bitVtype;  // maybe bitStdVconst for one of left or right, hence test all
+        } else {
+          exprDst.exprType_.etype = VhdlExprTerm.ExprTypeEnum.stdVtype;
+        }
+        return null;  //TODO exprLeft.
+    } };  
+    
+    
+    GenOperation concatBits = new GenOperation() {
+      @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, int nArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
+        //StringBuilder arg1 = new StringBuilder(20);
+//        final JavaSrc.Expression exprLeft = iArgs.next(); // it has 2 arguments, get first
+//        if(exprLeft ==null ) {
+//          vhdlError("concatbits(left, bits, right) needs two expressions", exprLeft);
+//        }
+//        VhdlExprTerm exprLeftPart = genExpression(exprDst.b, exprLeft, false, false, mdl, nameInnerClassVariable, null, null, null);
+        int ixArg = 0;
+        final int[] bitPositions = new int[nArgs/2 +1];
+        final JavaSrc.Expression[] exprConcat = new JavaSrc.Expression[nArgs/2];
+
+        while(iArgs.hasNext()) {
+          final JavaSrc.Expression exprNrBits = iArgs.next();
+          final JavaSrc.SimpleValue exprValue = exprNrBits.get_value(); // it has 2 arguments, get first
+          if(exprValue ==null) {
+            vhdlError("concatBits need a int value as " + 2*ixArg+1 + "th argument", exprNrBits); 
+            bitPositions[ixArg] = -1;
+          } else {
+            bitPositions[ixArg] = exprValue.get_intNumber();
+            if(bitPositions[ixArg] ==0) {
+              vhdlError("concatBits need a int value >=1 as " + 2*ixArg+1 + "th argument", exprNrBits); 
+            }
+          }
+          if(!iArgs.hasNext()) {
+            vhdlError("concatBits need a expression as " + 2*ixArg+2 + "th argument", exprNrBits);
+          }
+          exprConcat[ixArg] = iArgs.next(); // it has 2 arguments, get first
+          ixArg +=1;
+        }
+        for(int ix = 0; ix < exprConcat.length; ++ix) {
+          if(ix >0) { exprDst.b.append(" & "); }
+          int posDst = exprDst.b.length();
+          VhdlExprTerm exprRightPart = genExpression(exprDst.b, exprConcat[ix], false, false, mdl, nameInnerClassVariable, null, null, null);
+          if(ix == 0) {                          // determine the type from the first element
+            exprDst.exprType_.nrofElements = bitPositions[0];
+          }
+          //--------------------------------------- determine number of bits
+          int nrBits = bitPositions[ix] - bitPositions[ix+1];
+          if(exprRightPart.exprType_.nrofElements > nrBits) {
+            if(exprRightPart.nrOperands !=1 || exprRightPart.varCurrent_ ==null){
+              vhdlError("right expression shortened to " + nrBits + " is only possible for a simple vector argument, "+ ixArg + "th argument", exprConcat[ix]);
+              // The exprDst should only contain a simple variable
+            }
+            // no: exprDst.b.insert(posDst, "(");          // (vector)(5 DOWNTO 0) is not possible in VHDL
+            exprDst.b.append("(").append(nrBits-1).append(" DOWNTO 0)");
+          } else if(exprRightPart.exprType_.nrofElements < nrBits) {
+            String sBitVector0 = "\"0000000000000000";
+            exprDst.b.insert(posDst, sBitVector0.substring(0, nrBits - exprRightPart.exprType_.nrofElements +1) +"\" & ");
+          }
+          //--------------------------------------- determine or cast the type
+          if(exprDst.exprType_.etype == VhdlExprTerm.ExprTypeEnum.undef || exprDst.exprType_.etype == VhdlExprTerm.ExprTypeEnum.bitStdVconst) {
+            exprDst.exprType_.etype = exprRightPart.exprType_.etype;             // first right precise type determines.
+          } else if(exprDst.exprType_.etype != exprRightPart.exprType_.etype) {  // conversion to the left type.
+            String sConversion = VhdlExprTerm.sTypeConversions[exprDst.exprType_.etype.ix][exprRightPart.exprType_.etype.ix];
+            int posVal = sConversion.indexOf('%');
+            if(posVal <0) {
+              vhdlError("type of expression faulty", exprConcat[ix]);
+            }
+            exprDst.b.insert(posDst, sConversion.substring(0,posVal));
+            exprDst.b.append(sConversion.substring(posVal+1));
+          }
+          ixArg +=1;
+        }
+        return null;  //TODO exprLeft.
+      } };  
+
+    
   GenOperation getBitsShL = new GenOperation() {
-    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
+    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, int nArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       final JavaSrc.Expression exprSrc = iArgs.next(); // it has 2 arguments, get first
       VhdlExprTerm variable = genExprOnePart(exprSrc, mdl, nameInnerClassVariable);     // first argument variable
       J2Vhdl_Variable descrVar = variable.variable();
@@ -745,7 +817,7 @@ public class J2Vhdl_GenExpr {
    * 
    */
   GenOperation getBit = new GenOperation() {
-    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
+    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, int nArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       
       VhdlExprTerm.ExprType type0 = exprDst.exprType_;
       final JavaSrc.Expression exprSrc = iArgs.next();     // it has 2 arguments, get first
@@ -772,7 +844,7 @@ public class J2Vhdl_GenExpr {
   
   
   GenOperation emptyOperation = new GenOperation() {
-    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
+    @Override public J2Vhdl_Variable genOperation(final Iterator <JavaSrc.Expression> iArgs, int nArgs, VhdlExprTerm exprDst, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable) throws Exception {
       return null;
   } };  
   
@@ -784,6 +856,7 @@ public class J2Vhdl_GenExpr {
     this.idxFpgaOperations.put("getBitsShL", this.getBitsShL);
     this.idxFpgaOperations.put("getBitsShR", this.getBitsShR);
     this.idxFpgaOperations.put("concatbits", this.concatbits);
+    this.idxFpgaOperations.put("concatBits", this.concatBits);
     this.idxFpgaOperations.put("measTime", this.emptyOperation);
     this.idxFpgaOperations.put("checkTime", this.emptyOperation);
   }

@@ -126,7 +126,7 @@ public final class VhdlExprTerm extends SrcInfo {
   }
   
   /**Array of conversion between types. 
-   * Columns are adequate to the lines. fromUndef, frombitType etc.
+   * Columns and lines are adequate {@link ExprTypeEnum#ix} from undef .. maskVar.
    * % is the placeholder for the original expression.
    */
   static final String[] convToUndef       = {null, null, null, null,null, null, null, null,null, null, null, null, null};
@@ -869,6 +869,7 @@ public final class VhdlExprTerm extends SrcInfo {
       final JavaSrc.SimpleMethodCall sFn = val.get_simpleMethodCall();
       final JavaSrc.ActualArguments args = sFn.get_actualArguments();
       final Iterator <JavaSrc.Expression> iArgs = args ==null ? null: args.get_Expression().iterator();
+      final int nArgs = args == null ? 0 : args.getSize_Expression();
       String name = sFn.get_methodName();
       if(dbgStop)
         Debugutil.stop();
@@ -881,7 +882,7 @@ public final class VhdlExprTerm extends SrcInfo {
             Debugutil.stop();
             this.b.append("??").append(name).append("??");
           } else {
-            genOperation.genOperation(iArgs, this, mdlRef, nameIclassArg);
+            genOperation.genOperation(iArgs, nArgs, this, mdlRef, nameIclassArg);
           }
         } catch(NoSuchElementException exc) {
           System.err.println(exc.getMessage());

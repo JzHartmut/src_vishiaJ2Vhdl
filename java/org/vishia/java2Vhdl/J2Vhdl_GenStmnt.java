@@ -120,6 +120,9 @@ public class J2Vhdl_GenStmnt {
     else if(  stmnt.get_statementBlock() !=null) {
       genStmntBlock(out, stmnt.get_statementBlock(), mdl, nameInnerClassVariable, indent, bInsideProcess);
     }
+    else if( stmnt.get_exceptionClass() !=null) {
+      // it is a throw new(Exception), do not create content in VHDL, it is for test.
+    }
     else if(  stmnt.get_Expression() !=null) {
       genAssignment(out, stmnt.get_Expression(), mdl, nameInnerClassVariable, indent, bInsideProcess);
     }
