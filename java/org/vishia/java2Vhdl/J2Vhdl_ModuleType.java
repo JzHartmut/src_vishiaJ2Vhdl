@@ -105,6 +105,8 @@ public class J2Vhdl_ModuleType {
   
   Map<String, IfcConstExpr> idxIfcExpr = new TreeMap<String, IfcConstExpr>();
   
+  Map<String, J2Vhdl_TimeGroup> idxCeTime_ifc = new TreeMap<String, J2Vhdl_TimeGroup>();
+  
   /**Composite sub modules name as key and the variable with type to initialize. 
    * This is temporary till {@link J2Vhdl_ModuleInstance#idxSubModules} is created. */
   Map<String, JavaSrc.VariableInstance> idxSubModulesVar = null;

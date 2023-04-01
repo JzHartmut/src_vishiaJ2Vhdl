@@ -34,6 +34,10 @@ public class Java2Vhdl {
 
   /**Version, history and license.
    * <ul>
+   * <li>2023-04-01 in {@link #prepareIfcOperationsInModuleType(J2Vhdl_ModuleType, J2Vhdl_ModuleType, String, String, org.vishia.java2Vhdl.parseJava.JavaSrc.ClassContent)}:
+   *   detection of a CeTime_ifc as anchor for a time group.
+   *   In {@link #genProcesses(StringBuilder)}: association from the process signal to the time group
+   *   Note: Should detect whether statements after if(...ce()) will be existing. TODO
    * <li>2023-03-28 {@link #genRecords(Appendable)} info in VHDL on non found VHDL type. 
    * <li>2022-10-20 adapt change AnnotationUse in class syntax with usage for linked VHDL modules. 
    * <li>2022-08-22 in {@link #gatherAllVariables()}: also in the top level process classes ( {@link Fpga#} annotation VHDL_PROCESS) 
@@ -76,7 +80,7 @@ public class Java2Vhdl {
    * <li>descr: Change of description of elements.
    * </ul> 
    */
-  public static final String sVersion = "2022-08-22";
+  public static final String sVersion = "2023-04-01";
 
   
   
@@ -85,7 +89,7 @@ public class Java2Vhdl {
    * See search-hit ::: dbgStop ::: to set a breakpoint for specific positions of translation code.
    * 
    */
-  public String dbgStopFile = "SpiData.java";
+  public String dbgStopFile = null; //"SpiData.java";
   
   public int dbgStopLine1 = 506, dbgStopLine2 = 512;
   
@@ -625,7 +629,7 @@ public class Java2Vhdl {
             String nameType = sClassName + "_" + iClassName;  // J2Vhdl_ModuleType ToplevelType_Input
             J2Vhdl_ModuleType inoutType = new J2Vhdl_ModuleType(nameType, null, iclass, false);
             newInnerTypes.add(inoutType);    //instead: this.fdata.idxModuleTypes.put(name, inoutType); //concurrentmodificationException
-            prepareIfcOperationsInModuleType(inoutType, inoutType, null, iclass.get_classContent());
+            prepareIfcOperationsInModuleType(inoutType, inoutType, "??", null, iclass.get_classContent());
             J2Vhdl_ModuleInstance inoutModule = new J2Vhdl_ModuleInstance(name, null, inoutType, true, null, null);  // J2Vhdl_ModuleInstance ToplevelType_input
             this.fdata.idxModules.put(name, inoutModule);
             searchForIfcAccess(iclass.get_classContent(), inoutType);
@@ -713,6 +717,16 @@ public class Java2Vhdl {
         if(mdlParent.idxSubModules == null) { mdlParent.idxSubModules = new TreeMap<String, J2Vhdl_ModuleInstance>(); }
         mdlParent.idxSubModules.put(innerNameSubmdl, subModule);
         this.fdata.idxModules.put(subModule.nameInstance, subModule); // register the module globally as existing module instance in the whole VHDL file (it's a RECORD instance)
+//        if(typeSubmdl.idxCeTime_ifc !=null) {
+//          for( Map.Entry<String, JavaSrc.ClassContent> e1 : typeSubmdl.idxCeTime_ifc.entrySet()) {
+//            JavaSrc.ClassContent ceIfc = e1.getValue();
+//            String nameIfc = e1.getKey();
+//            String name = subModule.nameInstance + "." + nameIfc;
+//            if(mdlParent.idxCeTime_ifc == null) { mdlParent.idxCeTime_ifc = new TreeMap<String, JavaSrc.ClassContent>(); }
+//            mdlParent.idxCeTime_ifc.put(name, ceIfc);
+//            this.fdata.idxCeTime_ifc.put(name, ceIfc);  // not used TODO remove it
+//          }
+//        }
         createModuleInstancesRecursively(subModule, subModule.nameInstance, recursion +1);
       }
     }
@@ -774,7 +788,7 @@ public class Java2Vhdl {
   
   
   private void searchForIfcAccess ( JavaSrc.ClassContent mdlClassC, J2Vhdl_ModuleType mdlt) throws Exception {
-    if(mdlClassC.getSize_variableDefinition()>0) //... for
+    if(mdlClassC.getSize_variableDefinition()>0) { //... for
       for(JavaSrc.VariableInstance pVar: mdlClassC.get_variableDefinition()) {
         JavaSrc.ModifierVariable modif = pVar.get_ModifierVariable();
         if(modif !=null && modif.getSize_Annotation() >0) //...for
@@ -782,12 +796,14 @@ public class Java2Vhdl {
           if(annot.equals("Fpga.IfcAccess")) {             // a variable which contains operations for interface access.
             String sAccess = pVar.get_variableName();      // access for idxIfcAccess
             JavaSrc.ExprPart zInstance = pVar.get_Expression().get_ExprPart().iterator().next();
-            JavaSrc.ClassContent zClassC = zInstance.get_value().get_newObject().get_impliciteImplementationClass();
-            prepareIfcOperationsInModuleType(mdlt, mdlt, sAccess, zClassC);
+            JavaSrc.NewObject newObj = zInstance.get_value().get_newObject();
+            JavaSrc.ClassContent zClassC = newObj.get_impliciteImplementationClass();
+            String sIfcName = newObj.get_newClass().get_name();
+            prepareIfcOperationsInModuleType(mdlt, mdlt, sIfcName, sAccess, zClassC);
             Debugutil.stop();
           }
         }
-      }
+    } }
   }
   
   
@@ -801,7 +817,7 @@ public class Java2Vhdl {
 //      for(JavaSrc.ClassDefinition iclass: mdlt.moduleClass.get_classDefinition()) {
 //        
 //      }
-      prepareIfcOperationsInModuleType(mdlt, mdlt, null, mdlt.moduleClass.get_classContent());
+      prepareIfcOperationsInModuleType(mdlt, mdlt, sClassName, null, mdlt.moduleClass.get_classContent());
     }
   }
   
@@ -1065,11 +1081,18 @@ public class Java2Vhdl {
   
   
   
-  private void prepareIfcOperationsInModuleType(J2Vhdl_ModuleType moduleType, J2Vhdl_ModuleType mdlTypeIdx, String sAccess, JavaSrc.ClassContent zclassC) throws Exception {
+  private void prepareIfcOperationsInModuleType(J2Vhdl_ModuleType moduleType, J2Vhdl_ModuleType mdlTypeIdx, String sIfcName, String sAccess, JavaSrc.ClassContent zclassC) throws Exception {
     Iterable<JavaSrc.MethodDefinition> iter = zclassC.get_methodDefinition();
+    final J2Vhdl_TimeGroup timeGroup;
+    if(sIfcName.equals("CeTime_ifc")) {          // it is an access for a ce() with time group deterministic
+      timeGroup = new J2Vhdl_TimeGroup();
+    } else { 
+      timeGroup = null;                          // unrelevant
+    }
+
     if(iter !=null) for(JavaSrc.MethodDefinition oper: iter ) {
       String nameOper = oper.get_name();
-      if(! nameOper.equals("time_")) {                      // ignore operation time(), it is not for VHDL output.
+      if(! nameOper.equals("time_")) {           // ignore operation time(), it is not for VHDL output.
         if(nameOper.equals("ct"))
           Debugutil.stop();
         JavaSrc.ModifierMethod modif = oper.get_ModifierMethod();
@@ -1100,8 +1123,16 @@ public class Java2Vhdl {
                 J2Vhdl_ConstDef constDef = null;
                 JavaSrc.Expression expr = stmnt.get_Expression(); 
                 if(expr.getSize_ExprPart() ==1) {
+                  //------------------------------- look for a constant:
                   JavaSrc.ExprPart exprPart = expr.get_ExprPart().iterator().next(); //first part
                   JavaSrc.SimpleValue val = exprPart.get_value();
+                  if(timeGroup != null) {
+                    if(name.equals("timeGroupName")) {
+                      timeGroup.sTimeGroup = val.get_simpleStringLiteral();
+                    } else if(name.equals("period")) {
+                      timeGroup.minPeriod = val.get_constNumber().get_intNumber();
+                    }
+                  }
                   if(val !=null) {
                     JavaSrc.ConstNumber constVal = val.get_constNumber();
                     if(constVal !=null) {                      // a constant returned from interface
@@ -1109,12 +1140,19 @@ public class Java2Vhdl {
                       constDef = createConst(nameVhdl, nameVhdl, expr);
                       expr = null;  //no more necessary.
                 } } }
-                mdlTypeIdx.idxIfcExpr.put(sIfcOpName, new J2Vhdl_ModuleType.IfcConstExpr(expr, constDef));
+                if(timeGroup == null || name.equals("ce")) {
+                  // put also CeTime_ifc.ce(), and all other as access operations. 
+                  mdlTypeIdx.idxIfcExpr.put(sIfcOpName, new J2Vhdl_ModuleType.IfcConstExpr(expr, constDef));
+                } 
               }
             }
           }
         }
       }
+    }
+    if(timeGroup !=null) { 
+      String nameTime_ifc = /*mdlt.nameType +*/ sAccess;
+      moduleType.idxCeTime_ifc.put(sAccess, timeGroup);
     }
   }
   
@@ -1470,8 +1508,9 @@ public class Java2Vhdl {
       JavaSrc.ClassDefinition theclass = moduleInstance.type.moduleClass;     // get the only one public class of module
       JavaSrc.ClassContent theClassC = theclass.get_classContent();
       Iterable<JavaSrc.ClassDefinition> iclasses = theClassC.get_classDefinition(); 
-        if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
-          String nameiClass = iclass.get_classident();
+      if(iclasses !=null) for(JavaSrc.ClassDefinition iclass : iclasses) { // get inner class of public module class  
+        String[] sTimeGroup = new String[1];       // dst for time GROUP in the first if statement possible. 
+        String nameiClass = iclass.get_classident();
           if(iclass.getAnnotation("Fpga.VHDL_PROCESS") !=null) {
           //
             String namePrc = sModule  + "_" + nameiClass;                      // search that ctor of the class
@@ -1479,8 +1518,8 @@ public class Java2Vhdl {
             JavaSrc.ConstructorDefinition ctor = this.genStmnt.getCtorProcess(iclass, nameInnerClassVariable); // which is designated with @Fpga.CTOR_PROCESS
             if(ctor !=null) {
               String ctorName = ctor.get_constructor();
-              if(ctorName.equals("Qrx"))
-                Debugutil.stop();
+//              if(ctorName.equals("Val_CE7"))
+//                Debugutil.stop();
 //              if(namePrc.equals("mdl1_Val"))
 //                Debugutil.stop();
               wOut.append("\n\n\n").append(namePrc).append("_PRC: PROCESS ( clk )");
@@ -1489,10 +1528,23 @@ public class Java2Vhdl {
               this.genExpr.setInnerClass(nameIclass, sModule);
               this.genExpr.createProcessVar(wOut, ctor);                      // gather and output definition of local process variables
               wOut.append("\nBEGIN IF(clk'event AND clK='1') THEN\n");
+              String[] sTimeGroup1 = sTimeGroup; 
               for(JavaSrc.Statement stmnt: ctor.get_statement()) {             // all first level statements in the ctor
                 //CharSequence txt = this.vhdlConv.genStatement(stmnt, 1);
-                this.genStmnt.genStmnt(wOut, stmnt, moduleInstance, nameInnerClassVariable, 1, true);
+                boolean bGenerated = this.genStmnt.genStmnt(wOut, stmnt, moduleInstance, nameInnerClassVariable, 1, true, sTimeGroup1);
+                if(bGenerated) {
+                  sTimeGroup1 = null;  // only for first if statement. 
+                }
               } 
+              if(sTimeGroup[0] !=null) {
+                Debugutil.stop();
+                List<String> timedSignals = this.fdata.idxTimeGroups.get(sTimeGroup[0]);
+                if(timedSignals == null) {
+                  timedSignals = new LinkedList<String>();
+                  this.fdata.idxTimeGroups.put(sTimeGroup[0], timedSignals);  // create the group
+                }
+                timedSignals.add(namePrc);
+              }
               //
               this.genExpr.cleanProcessVar();
               wOut.append("\nEND IF; END PROCESS;\n");
@@ -1553,7 +1605,7 @@ public class Java2Vhdl {
                     if(expr !=null && expr.isAssignExpr()) {                 //without step and update, and test operations
                       
                       StringBuilder sAssg = new StringBuilder(100);  // for one line assignment
-                      VhdlExprTerm term = this.genExpr.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=", null);
+                      VhdlExprTerm term = this.genExpr.genExpression(sAssg, expr, false, false, moduleInstance, nameInnerClassVariable, "",  "<=", null, null);
                       int sep = sAssg.indexOf("<=");
                       int sepe = sAssg.indexOf(";");
                       final J2Vhdl_ModuleVhdlType.Assgn assgn;
@@ -1660,7 +1712,7 @@ public class Java2Vhdl {
             if(stmnt.isAssignExpr()) {                      // especially not step() and update(), or test operations. 
               //next line is faulty if a Process is created on top level, test with null is proper.
               //commented: this.vhdlConv.genStmnt(wOut, stmnt, mdl, mdlt.nameType, 0, false);
-              this.genStmnt.genStmnt(wOut, stmnt, mdl, null, 0, false);
+              this.genStmnt.genStmnt(wOut, stmnt, mdl, null, 0, false, null);
             }
 //            JavaSrc.Expression expr = stmnt.get_Expression();
 //            expr.get

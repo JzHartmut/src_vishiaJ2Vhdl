@@ -15,6 +15,9 @@ public final class VhdlExprTerm extends SrcInfo {
 
   /**Version, history and license.
    * <ul>
+   * <li>2023-04-01 In {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence, String[], boolean)}:
+   *   Detection whether a {@link org.vishia.fpga.stdmodules.CeTime_ifc} is used as reference, then fill the given sTimeGroup.
+   *   This is evaluated in {@link Java2Vhdl#genProcesses(StringBuilder)}.  
    * <li>2022-08-20  {@link #genSimpleValue(org.vishia.java2Vhdl.parseJava.JavaSrc.SimpleValue, boolean, J2Vhdl_ModuleInstance, String, CharSequence, boolean)}:
    *   if an expression part is "time", it is the time argument of step, then it is a timing assignment. Ignore it.
    *   This was only peculiar on a term which has "time_" left side, not detected but "time" in the expression.
@@ -92,7 +95,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * 
    * @author Hartmut Schorrig = hartmut.schorrig@vishia.de
    */
-  public final static String sVersion = "2023-03-28"; 
+  public final static String sVersion = "2023-04-01"; 
 
   
   /**Type of a variable and a build expression.
@@ -334,28 +337,29 @@ public final class VhdlExprTerm extends SrcInfo {
    * @throws Exception
    */
   public boolean addOperand ( VhdlExprTerm exprRightArg, J2Vhdl_Operator opPreced, JavaSrc.ExprPart part
-      , boolean genBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, boolean dbgStop) throws Exception {
+      , boolean genBool, J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
+      , String[] sTimeGroup, boolean dbgStop) throws Exception {
     //
     if( ! super.containsInfo()) { 
-      super.setSrcInfo(part);                              // store the source info from the first part
+      super.setSrcInfo(part);                    // store the source info from the first part
     }
     if(dbgStop)
       Debugutil.stop();
     int posEnd = this.b.length();
     final VhdlExprTerm exprRight;
     //
-    if(this.b.length() ==0) {                         // add part to the empty this ExprPart, for the first part of a term 
-      //======>>>>>>
-      if(!addPartValue(part.get_value(), false, mdl, nameInnerClassVariable, dbgStop)) {    // false if the operand is not valid, a mask or time 
-        this.b.setLength(posEnd);                          // then remove the operator also again, 
-        return false;                                      // faulty variable, especially mask, or time.
+    if(this.b.length() ==0) {                          
+      //======>>>>>>                             // add part to the empty this ExprPart, for the first part of a term
+      if(!addPartValue(part.get_value(), false, mdl, nameInnerClassVariable, sTimeGroup, dbgStop)) {    // false if the operand is not valid, a mask or time 
+        this.b.setLength(posEnd);                // then remove the operator also again, 
+        return false;                            // faulty variable, especially mask, or time.
       }
       exprRight = null;      
     }
-    else if(exprRightArg !=null) {                              // exprRightArg is than given if it comes from the operand precedence. It is calculated independent. 
-      exprRight = exprRightArg;                             // use given exprRight, maybe a more complex term
+    else if(exprRightArg !=null) {               // exprRightArg is than given if it comes from the operand precedence. It is calculated independent. 
+      exprRight = exprRightArg;                  // use given exprRight, maybe a more complex term
     }
-    else if(opPreced.sJava.equals("@")) {                  // it is an unary operation with the left value
+    else if(opPreced.sJava.equals("@")) {        // it is an unary operation with the left value
       String sUnaryOp = part.get_unaryOperator();
       if(sUnaryOp ==null) { 
         J2Vhdl_GenExpr.vhdlError("RPN @ @ without unary operator: ", part); 
@@ -376,7 +380,7 @@ public final class VhdlExprTerm extends SrcInfo {
         && (genBool || this.exprType_.etype == VhdlExprTerm.ExprTypeEnum.booltype);  //it is a boolean expression, or left is already a boolean type
         // then the right expression should write as boolean operand.
       //======>>>>>>>                                      // should be independently prepared, to adapt some conversions etc.
-      exprRight = genExprPartValue(part.get_value(), opPreced, false/*bNeedBoolRight*/, mdl, nameInnerClassVariable, dbgStop);
+      exprRight = genExprPartValue(part.get_value(), opPreced, false/*bNeedBoolRight*/, mdl, nameInnerClassVariable, null, dbgStop);
       if(exprRight == null) {
         this.b.setLength(posEnd);                          // then remove the operator also again, 
         return true;                                      // faulty variable, especially mask, or time.
@@ -517,11 +521,11 @@ public final class VhdlExprTerm extends SrcInfo {
 
 
   public static VhdlExprTerm genExprPartValue (JavaSrc.SimpleValue val, J2Vhdl_Operator op, boolean needBool
-    , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, boolean dbgStop) 
+    , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable, String[] sTimeGroup, boolean dbgStop) 
       throws Exception {
     VhdlExprTerm thiz = new VhdlExprTerm(J2Vhdl_GenExpr.d);
     thiz.precedSegm = op;
-    boolean bOk = thiz.addPartValue(val, needBool, mdl, nameInnerClassVariable, dbgStop);
+    boolean bOk = thiz.addPartValue(val, needBool, mdl, nameInnerClassVariable, sTimeGroup, dbgStop);
     return bOk ? thiz : null;
   }
   
@@ -539,7 +543,7 @@ public final class VhdlExprTerm extends SrcInfo {
    */
   private boolean addPartValue (JavaSrc.SimpleValue val, boolean needBool
       , J2Vhdl_ModuleInstance mdl, String nameInnerClassVariable
-      , boolean dbgStop) 
+      , String[] sTimeGroup, boolean dbgStop) 
       throws Exception {
     String sUnaryOp = val.get_unaryOperator();             // unary operator
     if(sUnaryOp !=null && !needBool) {
@@ -557,7 +561,7 @@ public final class VhdlExprTerm extends SrcInfo {
     //======>>>>>>>>>>>>>>>
     boolean bOk = true;
     try {
-      genSimpleValue(val, false, mdl, nameInnerClassVariable, null, dbgStop);
+      genSimpleValue(val, false, mdl, nameInnerClassVariable, null, sTimeGroup, dbgStop);
       
       if(needBool) { // && this.exprType_.etype != VhdlExprTerm.ExprTypeEnum.booltype) {
         assert(false);  //no more used
@@ -725,7 +729,7 @@ public final class VhdlExprTerm extends SrcInfo {
    * @throws Exception 
    */
   private J2Vhdl_Variable genSimpleValue(JavaSrc.SimpleValue val, boolean genBool, J2Vhdl_ModuleInstance mdlArg, String nameIclassArg
-    , CharSequence indent, boolean dbgStop) throws Exception {
+    , CharSequence indent, String[] sTimeGroup, boolean dbgStop) throws Exception {
     String s = val.toString();
     J2Vhdl_Variable varDescr = null;   //only set if a variable was found.
     if(dbgStop){
@@ -745,7 +749,7 @@ public final class VhdlExprTerm extends SrcInfo {
     if(val.get_parenthesisExpression()!=null) {
       this.b.append(" ( ");
       JavaSrc.Expression expr1 = val.get_Expression();
-      VhdlExprTerm termSimpleValue = J2Vhdl_GenExpr.d.genExpression(this.b, expr1, genBool, false, mdlRef, sNameIclass, indent, null, null);
+      VhdlExprTerm termSimpleValue = J2Vhdl_GenExpr.d.genExpression(this.b, expr1, genBool, false, mdlRef, sNameIclass, indent, null, null, null);
       this.b.append(" ) ");
       this.exprType_.set(termSimpleValue.exprType_);
     }
@@ -891,15 +895,23 @@ public final class VhdlExprTerm extends SrcInfo {
         // Hint the update operation is evaluated to find assignments to the output.
         // operation of mdl level are for testing, not intent to be interface calls.
       } else if(mdlRefInfo !=null && mdlRefInfo.bReferencedModule) {                       // operation call via ref module is an interface operation
+        if(dbgStop) {
+          Debugutil.stop();
+        }
         String sIfcName;
         if(mdlRefInfo ==null || mdlRefInfo.sNameRefIfcAccess == null) {
+          //--------------------------------------- specific for first if condition: check whether it is a CeTime_ifc access: 
+          //                                     // only if requested, if sTimeGroup is !=null
+          if(sTimeGroup !=null && mdlRef.type.idxCeTime_ifc !=null && sNameIclass !=null) {
+            J2Vhdl_TimeGroup ceTimeGroup = mdlRef.type.idxCeTime_ifc.get(sNameIclass);
+            if(ceTimeGroup !=null) {             // ifc access to a CeTime_ifc is found: 
+              sTimeGroup[0] = mdlRef.nameInstance + "_" + ceTimeGroup.sTimeGroup;
+            }
+          }
           sIfcName = (sNameIclass !=null && sNameIclass.length() >0 ? sNameIclass + "." : "") + name;
           sNameIclass = null;                            // it was used to build the sIfcName, not part of the variable access.
         } else {
           sIfcName = mdlRefInfo.sNameRefIfcAccess + "." + name;
-        }
-        if(dbgStop) {
-          Debugutil.stop();
         }
         J2Vhdl_ModuleType.IfcConstExpr ifcDef = mdlRef ==null ? null : mdlRef.type.idxIfcExpr.get(sIfcName);
         if(ifcDef == null) {
@@ -912,7 +924,7 @@ public final class VhdlExprTerm extends SrcInfo {
         } else if(ifcDef.expr !=null){
           boolean bInsideProcess = true;
           //String sNameIclassOp = nameIclassArg;                   // because inside the operation the outside reference to the call is not relevant. 
-          VhdlExprTerm ifcTerm = J2Vhdl_GenExpr.d.genExpression(null, ifcDef.expr, genBool, bInsideProcess, mdlRef, sNameIclass, indent, null, null);
+          VhdlExprTerm ifcTerm = J2Vhdl_GenExpr.d.genExpression(null, ifcDef.expr, genBool, bInsideProcess, mdlRef, sNameIclass, indent, null, null, null);
           this.exprType_.etype = ifcTerm.exprType_.etype;
           this.exprType_.nrofElements = ifcTerm.exprType_.nrofElements;
           this.nrOperands += ifcTerm.nrOperands;

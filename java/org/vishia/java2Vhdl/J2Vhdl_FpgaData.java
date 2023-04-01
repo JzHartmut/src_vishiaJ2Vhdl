@@ -1,5 +1,6 @@
 package org.vishia.java2Vhdl;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -19,6 +20,11 @@ public class J2Vhdl_FpgaData {
   /**This contains all module names which are requested either by Module sub classes from the top level or in other modules. */
   final Map<String, J2Vhdl_ModuleInstance> idxModules = new TreeMap<String, J2Vhdl_ModuleInstance>();
   
+  /**All Processes with clarified ce() access which builds Time Groups
+   * The key is the name of the time group, mdlName * "_" + timeGroupName ()
+   * The value is a list of the names of all SIGNAL instances for Processes.
+   */
+  final Map<String, List<String>> idxTimeGroups = new TreeMap<String, List<String>>();
    
   /**All variable of all modules with its presence in VHDL. */
   TreeMap<String, J2Vhdl_Variable> idxVars = new TreeMap<String, J2Vhdl_Variable>();
