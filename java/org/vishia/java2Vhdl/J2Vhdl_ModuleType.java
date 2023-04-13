@@ -59,10 +59,12 @@ public class J2Vhdl_ModuleType {
   static class IfcConstExpr {
     final JavaSrc.Expression expr;
     final J2Vhdl_ConstDef constVal;
+    final J2Vhdl_TimeGroup timeGroup;
   
-    public IfcConstExpr(Expression expr, J2Vhdl_ConstDef constVal) {
+    public IfcConstExpr(Expression expr, J2Vhdl_ConstDef constVal, J2Vhdl_TimeGroup timeGroup) {
       this.expr = expr;
       this.constVal = constVal;
+      this.timeGroup = timeGroup;
     }
   }
   
@@ -104,8 +106,6 @@ public class J2Vhdl_ModuleType {
   Map<String, String> XXXidxIfcOperation = new TreeMap<String, String>();
   
   Map<String, IfcConstExpr> idxIfcExpr = new TreeMap<String, IfcConstExpr>();
-  
-  Map<String, J2Vhdl_TimeGroup> idxCeTime_ifc = new TreeMap<String, J2Vhdl_TimeGroup>();
   
   /**Composite sub modules name as key and the variable with type to initialize. 
    * This is temporary till {@link J2Vhdl_ModuleInstance#idxSubModules} is created. */

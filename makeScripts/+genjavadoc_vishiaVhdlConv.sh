@@ -1,26 +1,25 @@
-#export DSTDIR=D:/vishia/Java/
-export DSTDIR=$TMP/_Javadoc/
-mkdir $DSTDIR
-
-if test -d ../../srcJava_vishiaBase; then export vishiaBase="../../srcJava_vishiaBase"
-else export vishiaBase="../../../../../../../Java/cmpnJava_vishiaBase/src/main/java/srcJava_vishiaBase"
-fi
-
-if test -d ../../srcJava_vishiaBase; then export vishiaBase="../../srcJava_vishiaBase"
-else export vishiaBase="../../../../../../../Java/cmpnJava_vishiaBase/src/main/java/srcJava_vishiaBase"
-fi
-
-if ! test -d $DSTDIR; then export DSTDIR=../../; fi
-echo %DSTDIR%
 export DST=docuSrcJava_vishiaVhdlConv
 
+if test -d ../../srcJava_vishiaBase; then export vishiaBase="../../srcJava_vishiaBase"
+else export vishiaBase="../../../../../../../Java/cmpnJava_vishiaBase/src/main/java/srcJava_vishiaBase"
+fi
+
+if test -d ../../srcJava_vishiaBase; then export vishiaBase="../../srcJava_vishiaBase"
+else export vishiaBase="../../../../../../../Java/cmpnJava_vishiaBase/src/main/java/srcJava_vishiaBase"
+fi
+
+
 export SRC="-subpackages org.vishia"
-export SRCPATH="..;$vishiaBase"
+export SRCPATH="../java;$vishiaBase"
 export CLASSPATH="xxxxx"
-export LINKPATH="-link ../../../../../../../Java/docuSrcJava_vishiaBase"
+if test -d ../../../../../../../Java/docuSrcJava_vishiaBase
+then export LINKPATH="-link ../../../../../../../Java/docuSrcJava_vishiaBase"
+fi
+if test -d ../../../docuSrcJava_vishiaBase
+then export LINKPATH="-link ../../../docuSrcJava_vishiaBase"
+fi
 
 
-
-$vishiaBase/_make/-genjavadocbase.sh
+$vishiaBase/makeScripts/-genjavadocbase.sh
 
 

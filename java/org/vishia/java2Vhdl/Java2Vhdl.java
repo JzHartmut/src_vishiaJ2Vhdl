@@ -116,6 +116,9 @@ public class Java2Vhdl {
     /**The file to write inner content. */
     public File fOutContentReport;
     
+    /**The file to write constraints. */
+    public File fOutConstraints;
+    
     /**Directory path for the translated parts of Java inputs.
      * On re-translation files here will be checked with time stamp against changes.
      */
@@ -145,6 +148,11 @@ public class Java2Vhdl {
     
     Arguments.SetArgument setOutContentReport = new Arguments.SetArgument(){ @Override public boolean setArgument(String val){ 
       Args.this.fOutContentReport = new File(val);
+      return true;
+    }};
+    
+    Arguments.SetArgument setOutConstraints = new Arguments.SetArgument(){ @Override public boolean setArgument(String val){ 
+      Args.this.fOutConstraints = new File(val);
       return true;
     }};
     
@@ -200,6 +208,7 @@ public class Java2Vhdl {
       super.helpInfo=" see www.vishia.org/Fpga/html/Vhdl/Java2Vhdl_ToolsAndExample.html";
       addArg(new Argument("-i", ":path/to/template.vhd  ...optional, if given, read this file to insert", this.setInVhdl));
       addArg(new Argument("-o", ":path/to/output.vhd", this.setOutVhdl));
+      addArg(new Argument("-oc", ":path/to/constraint.ext ", this.setOutConstraints));
       addArg(new Argument("-top", ":pkg.path.VhdlTopModule ... the top level java file (without .java, as class path) ", this.setJavaVhdlSrc));
       addArg(new Argument("-sdir", ":path/to/srcJava  ... able to use more as one", this.setDirJavaVhdlSource));
       addArg(new Argument("-sl", " ... optional, if given, remark src and line", this.setSrcComment));
@@ -442,6 +451,15 @@ public class Java2Vhdl {
     }
     else {                                                 // generate head of VHDL from Java
       wOut.append("\n\nEND BEHAVIORAL;\n");
+    }
+    if(this.args.fOutConstraints !=null) {               // report parsed content of modules, variables
+      try {
+        Writer wConstraints = new FileWriter(this.args.fOutConstraints);
+        writeConstraints(wConstraints);
+        wConstraints.close();
+      }catch(Exception exc) {
+        System.err.println("-rep:" + this.args.fOutConstraints.getAbsolutePath() + " faulty:" +  exc.getMessage());
+      }
     }
     wOut.close();
     System.out.println("success generated: " + this.args.fOutVhdl);
@@ -1116,7 +1134,7 @@ public class Java2Vhdl {
           )    ) {
           String sIfcOpName = (sAccess == null ? "" : sAccess + ".") + name;
           if(bOnlySim) {
-            mdlTypeIdx.idxIfcExpr.put(sIfcOpName, new J2Vhdl_ModuleType.IfcConstExpr(null, null));   //empty
+            mdlTypeIdx.idxIfcExpr.put(sIfcOpName, new J2Vhdl_ModuleType.IfcConstExpr(null, null, null));   //empty
           } else {
             for(JavaSrc.Statement stmnt: oper.get_methodbody().get_statement()) {
               if(stmnt.get_returnStmnt() !=null) {             // return expr found
@@ -1140,19 +1158,15 @@ public class Java2Vhdl {
                       constDef = createConst(nameVhdl, nameVhdl, expr);
                       expr = null;  //no more necessary.
                 } } }
-                if(timeGroup == null || name.equals("ce")) {
+                if(timeGroup == null || name.equals("ce")) {  //If timeGroup is not null, use only the ce() operation.
                   // put also CeTime_ifc.ce(), and all other as access operations. 
-                  mdlTypeIdx.idxIfcExpr.put(sIfcOpName, new J2Vhdl_ModuleType.IfcConstExpr(expr, constDef));
+                  mdlTypeIdx.idxIfcExpr.put(sIfcOpName, new J2Vhdl_ModuleType.IfcConstExpr(expr, constDef, timeGroup));
                 } 
               }
             }
           }
         }
       }
-    }
-    if(timeGroup !=null) { 
-      String nameTime_ifc = /*mdlt.nameType +*/ sAccess;
-      moduleType.idxCeTime_ifc.put(sAccess, timeGroup);
     }
   }
   
@@ -1518,7 +1532,7 @@ public class Java2Vhdl {
             JavaSrc.ConstructorDefinition ctor = this.genStmnt.getCtorProcess(iclass, nameInnerClassVariable); // which is designated with @Fpga.CTOR_PROCESS
             if(ctor !=null) {
               String ctorName = ctor.get_constructor();
-//              if(ctorName.equals("Val_CE7"))
+//              if(ctorName.equals("DataSet"))
 //                Debugutil.stop();
 //              if(namePrc.equals("mdl1_Val"))
 //                Debugutil.stop();
@@ -1854,6 +1868,21 @@ public class Java2Vhdl {
   }
   
   
+  
+  /**Write constraints yet only group and member for lattice
+   * @param out
+   * @throws IOException
+   */
+  void writeConstraints(Appendable out) throws IOException {
+    for( Map.Entry<String, List<String>> e: this.fdata.idxTimeGroups.entrySet()) {
+      out.append("DEFINE CELL GROUP \"").append(e.getKey()).append("\"\n");
+      List<String> listMember = e.getValue();
+      for(String member: listMember) {
+        out.append("\"").append(member).append(".*\"\n");
+      }
+      out.append(";\n");
+    }
+  }
   
 }
 

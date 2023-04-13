@@ -193,7 +193,7 @@ public final class VhdlExprTerm extends SrcInfo {
     @Override public String toString() { return this.etype.toString() + (this.nrofElements <=1 ? "" : Integer.toString(this.nrofElements)); }
   }
 
-
+  final J2Vhdl_GenExpr j2Vhdl_Expr;
   
   
   /**Necessary for getVariable, variables are property of the whole VHDL file.
@@ -232,6 +232,7 @@ public final class VhdlExprTerm extends SrcInfo {
   /**Creates an empty bowl for a term (some parts of an expression.  */
   public VhdlExprTerm(J2Vhdl_GenExpr vhdlConv) {
     super();
+    this.j2Vhdl_Expr = vhdlConv;
     //VhdlConv.d = vhdlConv;
     this.b = new StringBuilder(100);
     this.precedSegm = J2Vhdl_Operator.operatorMap.get("@");
@@ -247,6 +248,7 @@ public final class VhdlExprTerm extends SrcInfo {
    */
   public VhdlExprTerm(StringBuilder b, J2Vhdl_Operator precedSegm, ExprType type, int nrOperands, J2Vhdl_GenExpr vhdlConv) {
     super();
+    this.j2Vhdl_Expr = vhdlConv;
     //VhdlConv.d = vhdlConv;
     this.b = b;
     this.precedSegm = precedSegm;
@@ -899,20 +901,23 @@ public final class VhdlExprTerm extends SrcInfo {
           Debugutil.stop();
         }
         String sIfcName;
+        final String sCeTimeKey;
         if(mdlRefInfo ==null || mdlRefInfo.sNameRefIfcAccess == null) {
           //--------------------------------------- specific for first if condition: check whether it is a CeTime_ifc access: 
           //                                     // only if requested, if sTimeGroup is !=null
-          if(sTimeGroup !=null && mdlRef.type.idxCeTime_ifc !=null && sNameIclass !=null) {
-            J2Vhdl_TimeGroup ceTimeGroup = mdlRef.type.idxCeTime_ifc.get(sNameIclass);
-            if(ceTimeGroup !=null) {             // ifc access to a CeTime_ifc is found: 
-              sTimeGroup[0] = mdlRef.nameInstance + "_" + ceTimeGroup.sTimeGroup;
-            }
-          }
           sIfcName = (sNameIclass !=null && sNameIclass.length() >0 ? sNameIclass + "." : "") + name;
+          sCeTimeKey = sNameIclass;
           sNameIclass = null;                            // it was used to build the sIfcName, not part of the variable access.
         } else {
           sIfcName = mdlRefInfo.sNameRefIfcAccess + "." + name;
+          sCeTimeKey = mdlRefInfo.sNameRefIfcAccess;
         }
+//        if(sTimeGroup !=null && mdlRef.type.idxCeTime_ifc !=null && sNameIclass !=null) {
+//          J2Vhdl_TimeGroup ceTimeGroup = mdlRef.type.idxCeTime_ifc.get(sCeTimeKey);
+//          if(ceTimeGroup !=null) {             // ifc access to a CeTime_ifc is found: 
+//            sTimeGroup[0] = mdlRef.nameInstance + "_" + ceTimeGroup.sTimeGroup;
+//          }
+//        }
         J2Vhdl_ModuleType.IfcConstExpr ifcDef = mdlRef ==null ? null : mdlRef.type.idxIfcExpr.get(sIfcName);
         if(ifcDef == null) {
           J2Vhdl_GenExpr.vhdlError("VhdlExprTerm.genSimpleValue() - Interface operation not found: " + sIfcName + " in module: " + (mdlRef == null ? "??unknown" : mdlRef.nameInstance), val);
@@ -932,6 +937,12 @@ public final class VhdlExprTerm extends SrcInfo {
             this.b.append(" (").append(ifcTerm.b).append(") ");
           } else {
             this.b.append(ifcTerm.b);
+          }
+          if(sTimeGroup !=null && ifcDef.timeGroup !=null) {
+            if(sTimeGroup[0] !=null) {
+              Debugutil.stop();
+            }
+            sTimeGroup[0] = mdlRef.nameInstance + "_" + ifcDef.timeGroup.sTimeGroup;
           }
         }
       }

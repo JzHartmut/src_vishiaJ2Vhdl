@@ -90,9 +90,9 @@ public class J2Vhdl_GenExpr {
    * See search-hit ::: dbgStop ::: to set a breakpoint for specific positions of translation code.
    * 
    */
-  public static String dbgStopExprFile = null; //"ModuleXY"; //"BlinkingLed_Fpga.java"; //"SpiMaster.java";
+  public static String dbgStopExprFile = "BlinkingLedCt.java"; //"TxSpe"; //"ModuleXY"; //"SpiMaster.java";
   
-  public static int dbgStopLine1 = 159, dbgStopLine2 = 162;
+  public static int dbgStopLine1 = 123, dbgStopLine2 = 127;
   
   /**It is important to see which line/column was hit on {@link #dbgStopLine1} ..2 range */
   int[] dbgRdLineColumn = new int[2];

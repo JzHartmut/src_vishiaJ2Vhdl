@@ -1,7 +1,7 @@
-echo =========================================================================
+echo ====== start script ===============================================================
 echo execute $0
-## Set the current dir 2 level before the script, it is the srcDir/makeScripts
-cd $(dirname $0)/../..
+## Set the current dir 3 level before the script, it sees the src/srcDir/makeScripts
+cd $(dirname $0)/../../..
 echo currdir $PWD
 export DSTNAME="vishiaVhdlConv"
 echo " ... generates the $DSTNAME.jar from srcJava_$DSTNAME core sources"
@@ -9,7 +9,7 @@ echo " ... generates the $DSTNAME.jar from srcJava_$DSTNAME core sources"
 #Do not change the version on repeated build, and check the checksum and content of jar.
 #If it is equal, it is a reproduces build. The $VERSIONSTAMP is important 
 #  because it determines the timestamp and hence the checksum in the jar file. 
-export VERSIONSTAMP="2022-10-21"
+export VERSIONSTAMP="2023-04-12"
 
 ## Determine a dedicated vishiaBase-yyyy-mm-dd.jar or deactivate it to use the current vishiaBase.jar:
 export VERSION_VISHIABASE="XX2021-07-01"
@@ -34,10 +34,11 @@ if test "$VERSIONSTAMP" = ""; then export VERSIONSTAMP=$(date -I); fi   ## write
 export TIMEinJAR=""   ##get from $VERSIONSTAMP
 ##Note: The next is worse because it prevents reproducible results:
 ##export TIMEinJAR_VISHIABASE="$VERSIONSTAMP+00:00"
-export SRCDIRNAME="vishiaJ2Vhdl"  ##must identical to the own location
+## This directory is the source directory for this component to create a jar
+export SRCDIRNAME="src/vishiaJ2Vhdl"  ##must proper to the own location
 
 ## This directory contains some basic scripts. Should be exists
-export MAKEBASEDIR="srcJava_vishiaBase/makeScripts"
+export MAKEBASEDIR="src/srcJava_vishiaBase/makeScripts"     ##must proper in the own location
 
 #The SRCZIPFILE name will be written in MD5 file also for vishiaMiniSys.
 # It should have anytime the stamp of the newest file, independing of the VERSIONSTAMP
@@ -45,11 +46,11 @@ export SRCZIPFILE="$DSTNAME-$VERSIONSTAMP-source.zip"
 
 # Select the location and the proper vishiaBase
 # for generation with a given timestamp of vishiaBase in the vishia file tree:
-if test -f ../tools/vishiaBase.jar
-then export JAR_vishiaBase="../tools/vishiaBase.jar"
+if test -f tools/vishiaBase.jar
+then export JAR_vishiaBase="tools/vishiaBase.jar"
 # for generation side beside: 
-elif test -f ../../jars/vishiaBase.jar
-then export JAR_vishiaBase="../../jars/vishiaBase.jar"
+elif test -f jars/vishiaBase.jar
+then export JAR_vishiaBase="jars/vishiaBase.jar"
 else
   echo vishiaBase.jar not found, abort
   exit
@@ -66,14 +67,14 @@ export MANIFEST=$SRCDIRNAME/makeScripts/$DSTNAME.manifest
 ##This selects the files to compile
 export SRC_MAKE="$SRCDIRNAME/makeScripts" 
 export SRC_ALL="$SRCDIRNAME/java"
-export SRC_ALL2="vishiaFpga/java"
+export SRC_ALL2="src/vishiaFpga/java"
 unset FILE1SRC    ##left empty to compile all sources
 
 ##This is the path to find sources for javac, maybe more comprehensive as SRC_ALL
 unset SRCPATH       ##set it with SRC_ALL;SRC_ALL2
 
 # Resourcefiles for files in the jar
-export RESOURCEFILES="$SRCDIRNAME/java:**/*.zbnf $SRCDIRNAME/java:**/*.txt $SRCDIRNAME/java:**/*.xml $SRCDIRNAME/java:**/*.png"
+export RESOURCEFILES="$SRC_ALL:**/*.zbnf $SRC_ALL:**/*.txt $SRC_ALL:**/*.xml $SRC_ALL:**/*.png"
 
 
 #now run the common script:
