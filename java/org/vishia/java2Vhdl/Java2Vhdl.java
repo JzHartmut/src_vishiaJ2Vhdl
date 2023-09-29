@@ -421,17 +421,15 @@ public class Java2Vhdl {
     wOut.append(out);
     
     out = new StringBuilder(2400);
-    out.append("\n--Assignments from all input() operations to set ..In data of modules\n");
-    genInputOutputAssignments(out, "input");
+    genInputOutputAssignments(out, "input", "\n--Assignments from all input() operations to set ..In data of modules\n");
     wOut.append(out);
     
     out = new StringBuilder(2400);
     genProcesses(out);
     wOut.append(out);
     
-    out = new StringBuilder(2400);
-    out.append("\n--Assignments from all output() operations to set Out data of modules and set FPGA out pins\n");
-    genInputOutputAssignments(out, "output");
+    out = new StringBuilder(2400);               // Note: the update() cannot be used for output, contains assignments for test also.
+    genInputOutputAssignments(out, "output", "\n--Assignments from all output() operations to set Out data of modules and set FPGA out pins\n");
     wOut.append(out);
     
     
@@ -1702,7 +1700,9 @@ public class Java2Vhdl {
    * @param sOpName it is either "input" or "output" as name of the operation in top level or in a module.
    * @throws Exception 
    */
-  void genInputOutputAssignments(StringBuilder wOut, String sOpName) throws Exception {
+  void genInputOutputAssignments(StringBuilder wOut, String sOpName, String sComment) throws Exception {
+    boolean bContent = false;
+    wOut.append(sComment);
     for(Map.Entry<String, J2Vhdl_ModuleInstance> esrc: this.fdata.idxModules.entrySet()) {          // all sources, instances 
       J2Vhdl_ModuleInstance mdl = esrc.getValue();
       J2Vhdl_ModuleType mdlt = mdl.type;
@@ -1710,7 +1710,7 @@ public class Java2Vhdl {
       JavaSrc.ClassDefinition theclass = mdl.type.moduleClass;     // get the only one public class of module
       JavaSrc.ClassContent theClassC = theclass.get_classContent();
       Iterable<JavaSrc.MethodDefinition> ioper = theClassC.get_methodDefinition(); 
-      if(ioper !=null) for(JavaSrc.MethodDefinition oper : ioper) { // get inner class of public module class  
+      if(ioper !=null) for(JavaSrc.MethodDefinition oper : ioper) { // get operations in the class  
         String nameOper = oper.get_name();
         if(nameOper.equals(sOpName)) {            // it is an inner class for a VHDL RECORD and PROCESS
           Iterable<JavaSrc.Statement> istmnt = oper.get_methodbody().get_statement();
@@ -1724,6 +1724,7 @@ public class Java2Vhdl {
                 dbgStop = true;
             } }
             if(stmnt.isAssignExpr()) {                      // especially not step() and update(), or test operations. 
+              bContent = true;
               //next line is faulty if a Process is created on top level, test with null is proper.
               //commented: this.vhdlConv.genStmnt(wOut, stmnt, mdl, mdlt.nameType, 0, false);
               this.genStmnt.genStmnt(wOut, stmnt, mdl, null, 0, false, null);
@@ -1734,6 +1735,7 @@ public class Java2Vhdl {
         }
       }
     }
+    if(!bContent) { wOut.append("\n--nothing found\n"); }
   }
   
   
