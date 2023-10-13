@@ -36,7 +36,7 @@ if not exist tools mklink /J tools ..\..\Java\tools
 
 cd src
 REM create a symbolic link to a directory where the src/vishiaFpga is originally stored, adapt this path if necessary.
-if not exist java_vishiaBase mklink /J java_vishiaBase ..\..\..\Java\cmpnJava_vishiaBase\src\java_vishiaBase
+if not exist srcJava_vishiaBase mklink /J srcJava_vishiaBase ..\..\..\Java\cmpnJava_vishia\src\srcJava_vishiaBase
 
 REM The vishiaFpga should be stored here as original
 if not exist vishiaFpga mklink /J vishiaFpga XXX-path-if-not-exist

@@ -80,7 +80,7 @@ public class Java2Vhdl {
    * <li>descr: Change of description of elements.
    * </ul> 
    */
-  public static final String sVersion = "2023-04-01";
+  public static final String sVersion = "2023-10-12";
 
   
   
@@ -337,7 +337,7 @@ public class Java2Vhdl {
    * @throws Exception 
    */
   void exec() throws Exception {
-    
+    System.out.println("Java2VHDL made by Hartmut Schorrig, version:" + sVersion);
     InputStream inTpl = Java2Vhdl.class.getResourceAsStream("VhdlTemplate.txt");  //pathInJar with slash: from root.
     Map<String, String> tplTexts = OutTextPreparer.readTemplate(inTpl, "===");
     inTpl.close();
