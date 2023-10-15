@@ -25,31 +25,26 @@ export MAKEBASEDIR="src/srcJava_vishiaBase/makeScripts"
 ## Determine the name of some files and directories with the component's name:
 export DSTNAME="vishiaVhdlConv"
 
-# Select the location and the proper vishiaBase
-# for generation with a given timestamp of vishiaBase in the vishia file tree:
-if test -f tools/vishiaBase.jar
-then export JAR_vishiaBase="tools/vishiaBase.jar"
-# for generation side beside: 
-elif test -f jars/vishiaBase.jar
-then export JAR_vishiaBase="jars/vishiaBase.jar"
-else
-  echo vishiaBase.jar not found, abort
-  exit
-fi
-if test "$OS" = "Windows_NT"; then export sepPath=";"; else export sepPath=":"; fi
-
 ## Determines the sources for this component to create a jar
 SRCDIRNAME="src/vishiaJ2Vhdl"
 export SRC_ALL="$SRCDIRNAME/java"            ## use all sources from here
 export SRC_ALL2="src/vishiaFpga/java"        ## use all sources also from here
 export SRCPATH="";                           ## search path for depending sources if FILE1SRC is given
 export FILE1SRC=""                           ## use a specific source file (with depending ones)
-export SRC_MAKE="$SRCDIRNAME/makeScripts"    ## add it to the source.zip 
+
+## Determines the manifest file for the jar
 export MANIFEST="$SRCDIRNAME/makeScripts/$DSTNAME.manifest"
 
+## add paths to the source.zip, should be a relative path from current dir 
+export SRCADD_ZIP=".:$SRCDIRNAME/makeScripts/*"  
+
 # Determines search path for compiled sources (in jar) for this component. 
-# do not left empty because it is used as argument for javac
-export CLASSPATH="$JAR_vishiaBase"
+# Select the location and the proper vishiaBase
+if test -f tools/vishiaBase.jar; then export JARS="tools"
+elif test -f jars/vishiaBase.jar; then export JARS="jars"
+else echo necessary tools or jars not found, abort; exit; fi
+if test "$OS" = "Windows_NT"; then export sepPath=";"; else export sepPath=":"; fi
+export CLASSPATH="-cp $JARS/vishiaBase.jar"
 
 # Determines resource files to store in the jar
 export RESOURCEFILES="$SRC_ALL:**/*.zbnf $SRC_ALL:**/*.txt $SRC_ALL:**/*.xml $SRC_ALL:**/*.png"
@@ -59,6 +54,4 @@ export RESOURCEFILES="$SRC_ALL:**/*.zbnf $SRC_ALL:**/*.txt $SRC_ALL:**/*.xml $SR
 chmod 777 $MAKEBASEDIR/-makejar-coreScript.sh
 chmod 777 $DEPLOYSCRIPT
 $MAKEBASEDIR/-makejar-coreScript.sh
-
-
 
